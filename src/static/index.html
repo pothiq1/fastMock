@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mock API Manager</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body class="container my-5">
+    <h1 class="text-center mb-4">Mock API Manager</h1>
+
+    <!-- Notification -->
+    <div id="notification" class="alert alert-success text-center" style="display:none;">Mock API saved successfully!</div>
+
+    <!-- Mock Form -->
+    <form id="mock-form" class="mb-4">
+        <input type="hidden" id="mock-id">
+
+        <div class="form-group">
+            <label for="api_name">API Name:</label>
+            <input type="text" class="form-control" id="api_name" name="api_name" required>
+        </div>
+
+        <div class="form-group">
+            <label for="response">Response:</label>
+            <textarea class="form-control" id="response" name="response" rows="3" required></textarea>
+            <small id="response-length" class="form-text text-muted">Characters: 0</small>
+        </div>
+
+        <div class="form-group">
+            <label for="status">Status Code:</label>
+            <input type="number" class="form-control" id="status" name="status" value="200" required>
+        </div>
+
+        <div class="form-group">
+            <label for="delay">Response Delay (ms):</label>
+            <input type="number" class="form-control" id="delay" name="delay" value="0" required>
+        </div>
+
+        <div class="form-group">
+            <label for="method">HTTP Method:</label>
+            <select id="method" name="method" class="form-control">
+                <option value="GET">GET</option>
+                <option value="POST">POST</option>
+                <option value="PUT">PUT</option>
+                <option value="DELETE">DELETE</option>
+            </select>
+        </div>
+
+        <button type="button" class="btn btn-primary" id="saveButton">Save Mock</button>
+    </form>
+
+    <!-- Mock List Table -->
+    <h2 class="text-center mb-3">Current Mocks</h2>
+    <table class="table table-bordered table-hover">
+        <thead class="thead-dark">
+            <tr>
+                <th>API Name</th>
+                <th>Status</th>
+                <th>Delay</th>
+                <th>Method</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="mock-table-body">
+            <!-- Mock entries will go here -->
+        </tbody>
+    </table>
+
+    <!-- JavaScript for managing mock operations and character count -->
+    <script>
+        $(document).ready(function() {
+            loadMocks();
+
+            $('#saveButton').on('click', function() {
+                const formData = {
+                    api_name: $('#api_name').val(),
+                    response: $('#response').val(),
+                    status: parseInt($('#status').val(), 10),
+                    delay: parseInt($('#delay').val(), 10),
+                    method: $('#method').val()
+                };
+
+                const id = $('#mock-id').val();
+                const url = id ? `/update-mock/${id}` : '/save-mock';
+                const type = id ? 'PUT' : 'POST';
+
+                $.ajax({
+                    type: type,
+                    url: url,
+                    contentType: 'application/json',
+                    data: JSON.stringify(formData),
+                    success: function() {
+                        $('#notification').fadeIn().delay(2000).fadeOut();
+                        loadMocks();
+                        $('#mock-form')[0].reset();
+                        $('#response-length').text("Characters: 0");
+                        $('#mock-id').val('');
+                    },
+                    error: function(xhr) {
+                        alert('Failed to save or update mock: ' + xhr.responseText);
+                    }
+                });
+            });
+
+            $('#response').on('input', function() {
+                const length = $(this).val().length;
+                $('#response-length').text(`Characters: ${length}`);
+            });
+
+            function loadMocks() {
+                $.get('/list-mocks', function(mocks) {
+                    $('#mock-table-body').empty();
+                    mocks.forEach(mock => addMockToTable(mock));
+                });
+            }
+
+            function addMockToTable(mock) {
+                $('#mock-table-body').append(`
+                    <tr data-id="${mock.id}">
+                        <td><a href="/mock/${mock.api_name}" target="_blank">${mock.api_name}</a></td>
+                        <td>${mock.status}</td>
+                        <td>${mock.delay}</td>
+                        <td>${mock.method}</td>
+                        <td>
+                            <button class="btn btn-warning btn-sm" onclick="editMock('${mock.id}')">Edit</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteMock('${mock.id}')">Delete</button>
+                        </td>
+                    </tr>
+                `);
+            }
+
+            window.editMock = function(id) {
+                $.get(`/get-mock/${id}`, function(mock) {
+                    $('#api_name').val(mock.api_name);
+                    $('#response').val(mock.response);
+                    $('#status').val(mock.status);
+                    $('#delay').val(mock.delay);
+                    $('#method').val(mock.method);
+                    $('#mock-id').val(mock.id);
+                    $('#response-length').text(`Characters: ${mock.response.length}`);
+                });
+            };
+
+            window.deleteMock = function(id) {
+                $.ajax({
+                    type: 'DELETE',
+                    url: `/delete-mock/${id}`,
+                    success: function() {
+                        $(`#mock-table-body tr[data-id="${id}"]`).fadeOut();
+                    },
+                    error: function(xhr) {
+                        alert('Failed to delete mock: ' + xhr.responseText);
+                    }
+                });
+            };
+        });
+    </script>
+</body>
+</html>
