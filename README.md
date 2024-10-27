@@ -45,37 +45,37 @@ A dynamic mock API server built with Actix Web (Rust). This server allows for ea
    cargo build --release
 
 3. **Run the Server Locally**:
-  ```bash
-  cargo run
+   ```bash
+   cargo run
 
 4. **Access the Web Interface**:
 
-Open your browser and navigate to http://localhost:8080.
+  Open your browser and navigate to http://localhost:8080.
 
 # Configuration for Kubernetes
 To deploy this service on Kubernetes, create a Deployment file (deployment.yaml) with the following configuration (assuming the Docker image is already built and pushed):
 
-  ```yaml
-  apiVersion: apps/v1
-  kind: Deployment
-  metadata:
-    name: mock-api-manager
-  spec:
-    replicas: 3
-    selector:
-      matchLabels:
-        app: mock-api
-    template:
-      metadata:
-        labels:
-          app: mock-api
-      spec:
-        containers:
-          - name: mock-api-manager
-            image: your-docker-image:latest
-            ports:
-              - containerPort: 8080
-
+   ```yaml
+     apiVersion: apps/v1
+     kind: Deployment
+     metadata:
+       name: mock-api-manager
+     spec:
+       replicas: 3
+       selector:
+         matchLabels:
+           app: mock-api
+       template:
+         metadata:
+           labels:
+             app: mock-api
+         spec:
+           containers:
+             - name: mock-api-manager
+               image: your-docker-image:latest
+               ports:
+                 - containerPort: 8080
+  ``` 
 # Usage
 
 ## Creating and Updating Mocks
@@ -100,18 +100,18 @@ Dynamic Query and Body Parsing:
 
 # Example Usage with curl
 
-```bash
-# Save a new mock
-curl -X POST http://localhost:8080/save-mock \
--H "Content-Type: application/json" \
--d '{
-    "api_name": "example-api",
-    "response": "{\"message\": \"Hello, {{username}}\"}",
-    "status": 200,
-    "delay": 100,
-    "method": "GET"
-}'
-
+   ```bash
+   # Save a new mock
+   curl -X POST http://localhost:8080/save-mock \
+   -H "Content-Type: application/json" \
+   -d '{
+       "api_name": "example-api",
+       "response": "{\"message\": \"Hello, {{username}}\"}",
+       "status": 200,
+       "delay": 100,
+       "method": "GET"
+   }'
+   ```
 # Access a mock response
 curl -X GET http://localhost:8080/mock/example-api?username=World
 
