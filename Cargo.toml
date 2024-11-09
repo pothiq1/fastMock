@@ -2,13 +2,53 @@
 name = "OMock"
 version = "0.1.0"
 edition = "2021"
+authors = ["Md Hasan Basri <pothiq@gmail.com>"]
+license = "MIT"
 
 [dependencies]
-actix-web = "4.0"
+# Actix and related crates
+actix-web = "4"
 actix-web-codegen = "4.3"
+actix-files = "0.6.0"
+
+# Serde and JSON handling
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-uuid = { version = "1.1", features = ["v4", "serde"] }
-actix-files = "0.6"
+
+# UUIDs
+uuid = { version = "1.0", features = ["v4", "serde"] }
+
+# Logging
 env_logger = "0.9"
 log = "0.4"
+
+# Asynchronous runtime
+tokio = { version = "1.15", features = ["rt-multi-thread", "macros"] }
+
+# HTTP client
+reqwest = { version = "0.11", features = ["json", "rustls-tls"] }
+
+# Error handling
+anyhow = "1.0"
+
+# Kubernetes client and API
+kube = { version = "0.64.0", default-features = false, features = ["runtime", "derive", "rustls-tls", "client"] }
+k8s-openapi = { version = "0.13.0", features = ["v1_20"] }
+
+# Concurrent data structures
+dashmap = "5.1"
+
+# System information
+num_cpus = "1.13"
+
+# Handlebars templating
+handlebars = "4.1"
+
+# Random number and string generation
+rand = { version = "0.8", features = ["std"] }
+
+# Date and time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# Regex for string pattern matching
+regex = "1.5"

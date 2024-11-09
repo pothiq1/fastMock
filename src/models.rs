@@ -1,14 +1,15 @@
 // src/models.rs
+
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Clone)]
+/// Struct representing a mock API
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MockAPI {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub id: Option<Uuid>, // Make `id` optional
+    pub id: Option<Uuid>,
     pub api_name: String,
-    pub response: String,
+    pub response: String, // Can contain Handlebars placeholders
     pub status: u16,
-    pub delay: u64,
-    pub method: String,
+    pub delay: u64,       // Delay in milliseconds
+    pub method: String,   // HTTP method (e.g., GET, POST)
 }

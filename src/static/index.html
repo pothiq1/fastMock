@@ -4,13 +4,102 @@
     <meta charset="UTF-8">
     <title>Mock API Manager</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/themes/prism.min.css" />
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-json.min.js"></script>
+    <style>
+        .text-action {
+            font-size: 0.875em;
+            cursor: pointer;
+            color: #007bff;
+            text-decoration: underline;
+        }
+        .text-action:hover {
+            text-decoration: none;
+        }
+        .json-view {
+            font-family: monospace;
+            padding: 10px;
+            background: #f8f9fa;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+            color: #333;
+        }
+        .collapsible {
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .expanded::before {
+            content: "- ";
+            color: #007bff;
+        }
+        .collapsed::before {
+            content: "+ ";
+            color: #007bff;
+        }
+        .collapsible-placeholder {
+            display: inline;
+            color: #777;
+        }
+        .collapsible-content {
+            display: none;
+            margin-left: 20px;
+        }
+        .json-key {
+            color: #d9534f;
+        }
+        .json-string {
+            color: #5bc0de;
+        }
+        .json-number {
+            color: #f0ad4e;
+        }
+        .json-boolean {
+            color: #5cb85c;
+        }
+        .json-null {
+            color: #777;
+        }
+        .json-placeholder {
+            color: #ff00ff;
+            font-style: italic;
+        }
+        footer {
+            position: fixed;
+            bottom: 10px; /* 1 cm above the bottom */
+            left: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 0.875em;
+            color: #555;
+            padding: 5px 0;
+            background: rgba(255, 255, 255, 0.9); /* Slight transparency */
+            border-top: 1px solid #ddd;
+        }
+        footer a {
+            color: #007bff;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        footer a:hover {
+            text-decoration: underline;
+        }
+        footer .version-info {
+            color: #777;
+            margin-top: 5px;
+            font-size: 0.85em;
+        }
+    </style>
 </head>
 <body class="container my-5">
     <h1 class="text-center mb-4">Mock API Manager</h1>
 
-    <!-- Notification -->
+    <!-- Notification and Loading Indicators -->
     <div id="notification" class="alert alert-success text-center" style="display:none;">Mock API saved successfully!</div>
+    <div id="loading" class="alert alert-info text-center" style="display:none;">Processing...</div>
 
     <!-- Mock Form -->
     <form id="mock-form" class="mb-4">
@@ -18,23 +107,51 @@
 
         <div class="form-group">
             <label for="api_name">API Name:</label>
-            <input type="text" class="form-control" id="api_name" name="api_name" required>
+            <input type="text" class="form-control" id="api_name" name="api_name" required placeholder="No spaces allowed">
+            <small id="api-name-error" class="form-text text-danger" style="display:none;">API Name should not contain whitespace.</small>
         </div>
 
         <div class="form-group">
-            <label for="response">Response:</label>
+            <label for="response">Response (JSON):</label>
             <textarea class="form-control" id="response" name="response" rows="3" required></textarea>
-            <small id="response-length" class="form-text text-muted">Characters: 0</small>
+            <div class="d-flex justify-content-between align-items-center mt-1">
+                <small id="response-info" class="form-text text-muted">Characters: 0 | Size: 0 KB</small>
+                <div>
+                    <span id="formatJsonBtn" class="text-action mr-3" title="Format JSON">Format JSON</span>
+                    <span id="expandAllBtn" class="text-action mr-3" title="Expand All" style="display: none;">Expand All</span>
+                    <span id="squeezeAllBtn" class="text-action mr-3" title="Squeeze All" style="display: none;">Squeeze All</span>
+                    <span id="toggleJsonViewBtn" class="text-action" title="Toggle JSON View">Toggle View</span>
+                </div>
+            </div>
         </div>
 
         <div class="form-group">
             <label for="status">Status Code:</label>
-            <input type="number" class="form-control" id="status" name="status" value="200" required>
+            <input type="text" class="form-control" id="status" name="status" list="status-codes" required placeholder="e.g., 200">
+            <datalist id="status-codes">
+                <option value="200">200 OK</option>
+                <option value="201">201 Created</option>
+                <option value="204">204 No Content</option>
+                <option value="207">207 Multi-Status</option>
+                <option value="301">301 Moved Permanently</option>
+                <option value="304">304 Not Modified</option>
+                <option value="400">400 Bad Request</option>
+                <option value="401">401 Unauthorized</option>
+                <option value="403">403 Forbidden</option>
+                <option value="404">404 Not Found</option>
+                <option value="429">429 Too Many Requests</option>
+                <option value="500">500 Internal Server Error</option>
+                <option value="502">502 Bad Gateway</option>
+                <option value="503">503 Service Unavailable</option>
+                <option value="504">504 Gateway Timeout</option>
+            </datalist>
+            <small id="status-error" class="form-text text-danger" style="display:none;">Please enter a valid HTTP status code.</small>
         </div>
 
         <div class="form-group">
             <label for="delay">Response Delay (ms):</label>
-            <input type="number" class="form-control" id="delay" name="delay" value="0" required>
+            <input type="number" class="form-control" id="delay" name="delay" value="0" required placeholder="0-60000">
+            <small id="delay-error" class="form-text text-danger" style="display:none;">Delay should be a number between 0 and 60000 ms.</small>
         </div>
 
         <div class="form-group">
@@ -67,12 +184,141 @@
         </tbody>
     </table>
 
-    <!-- JavaScript for managing mock operations and character count -->
+    <!-- Footer with developer information -->
+    <!-- Footer with developer information -->
+    <footer>
+        <div>Developed by <a href="https://www.linkedin.com/in/pothiq/" target="_blank">Md Hasan Basri</a></div>
+        <div class="version-info">Version 1.0.0 | Build Year: 2024</div>
+    </footer>
+
+    <!-- JavaScript for managing mock operations, validation, and character count -->
     <script>
+        const validStatusCodes = ["200", "201", "204", "207", "301", "304", "400", "401", "403", "404", "429", "500", "502", "503", "504"];
+
         $(document).ready(function() {
+            let isJsonView = false;
+
+            // Load mocks on page load
             loadMocks();
 
+             // Toggle JSON View
+            $('#toggleJsonViewBtn').on('click', function(event) {
+                event.preventDefault();
+                const responseElement = $('#response');
+                const responseContent = responseElement.val().trim();
+
+                if (!isJsonView) {
+                    try {
+                        const json = JSON.parse(responseContent);
+                        const collapsibleHtml = createCollapsibleJson(json);
+                        responseElement.hide();
+                        $('#json-view').remove();
+                        responseElement.after(`<pre id="json-view" class="json-view">${collapsibleHtml}</pre>`);
+                        $('#toggleJsonViewBtn').text('Edit JSON');
+                        $('#formatJsonBtn').hide();
+                        $('#expandAllBtn, #squeezeAllBtn').show();
+                        isJsonView = true;
+
+                        // Set up click events for collapsible items with animation
+                        $('.collapsible').on('click', function() {
+                            const $content = $(this).next('.collapsible-content');
+                            const $placeholder = $(this).children('.collapsible-placeholder');
+                            
+                            $(this).toggleClass('expanded').toggleClass('collapsed');
+                            if ($content.is(':visible')) {
+                                $content.slideUp(200); // Collapse with animation
+                                $placeholder.fadeIn(200); // Show {...} with fade animation
+                            } else {
+                                $placeholder.fadeOut(200); // Hide {...} with fade animation
+                                $content.slideDown(200); // Expand with animation
+                            }
+                        });
+                    } catch (e) {
+                        alert('Invalid JSON - Cannot toggle view');
+                    }
+                } else {
+                    $('#json-view').remove();
+                    responseElement.show();
+                    $('#toggleJsonViewBtn').text('Toggle View');
+                    $('#formatJsonBtn').show();
+                    $('#expandAllBtn, #squeezeAllBtn').hide();
+                    isJsonView = false;
+                }
+            });
+
+            // Expand All functionality
+            $('#expandAllBtn').on('click', function() {
+                $('.collapsible-content').slideDown(200);
+                $('.collapsible-placeholder').fadeOut(200);
+                $('.collapsible').removeClass('collapsed').addClass('expanded');
+            });
+
+            // Squeeze All functionality
+            $('#squeezeAllBtn').on('click', function() {
+                $('.collapsible-content').slideUp(200);
+                $('.collapsible-placeholder').fadeIn(200);
+                $('.collapsible').removeClass('expanded').addClass('collapsed');
+            });
+
+            $('#formatJsonBtn').on('click', function(event) {
+                event.preventDefault();
+                try {
+                    const json = JSON.parse($('#response').val());
+                    $('#response').val(JSON.stringify(json, null, 4));
+                } catch (e) {
+                    alert('Invalid JSON');
+                }
+            });
+
+            // Function to create collapsible JSON HTML
+            function createCollapsibleJson(json) {
+                if (typeof json !== 'object' || json === null) {
+                    return styleJsonValue(json);
+                }
+
+                let html = '';
+                const isArray = Array.isArray(json);
+                html += isArray ? '[<br>' : '{<br>';
+                for (const key in json) {
+                    const value = json[key];
+                    const isObject = typeof value === 'object' && value !== null;
+
+                    html += `<div style="margin-left: 20px;">`;
+                    if (!isArray) {
+                        html += `<span class="json-key">"${key}"</span>: `;
+                    }
+                    if (isObject) {
+                        html += `<span class="collapsible collapsed">`;
+                        html += `<span class="collapsible-placeholder">{...}</span></span>`;
+                        html += `<div class="collapsible-content">${createCollapsibleJson(value)}</div>`;
+                    } else {
+                        html += `${styleJsonValue(value)},<br>`;
+                    }
+                    html += '</div>';
+                }
+                html += isArray ? ']<br>' : '}<br>';
+                return html;
+            }
+
+            // Function to style JSON values based on their type
+            function styleJsonValue(value) {
+                if (typeof value === 'string') {
+                    const isPlaceholder = value.startsWith("{{") && value.endsWith("}}");
+                    const className = isPlaceholder ? "json-placeholder" : "json-string";
+                    return `<span class="${className}">"${value}"</span>`;
+                } else if (typeof value === 'number') {
+                    return `<span class="json-number">${value}</span>`;
+                } else if (typeof value === 'boolean') {
+                    return `<span class="json-boolean">${value}</span>`;
+                } else if (value === null) {
+                    return `<span class="json-null">null</span>`;
+                }
+            }
+
             $('#saveButton').on('click', function() {
+                if (!validateForm()) return;
+
+                $('#loading').show();
                 const formData = {
                     api_name: $('#api_name').val(),
                     response: $('#response').val(),
@@ -92,20 +338,21 @@
                     data: JSON.stringify(formData),
                     success: function() {
                         $('#notification').fadeIn().delay(2000).fadeOut();
+                        $('#loading').hide();
                         loadMocks();
                         $('#mock-form')[0].reset();
-                        $('#response-length').text("Characters: 0");
+                        $('#response-info').text("Characters: 0 | Size: 0 KB");
                         $('#mock-id').val('');
                     },
                     error: function(xhr) {
                         alert('Failed to save or update mock: ' + xhr.responseText);
+                        $('#loading').hide();
                     }
                 });
             });
 
             $('#response').on('input', function() {
-                const length = $(this).val().length;
-                $('#response-length').text(`Characters: ${length}`);
+                updateResponseInfo();
             });
 
             function loadMocks() {
@@ -131,6 +378,7 @@
             }
 
             window.editMock = function(id) {
+                $('#loading').show();
                 $.get(`/get-mock/${id}`, function(mock) {
                     $('#api_name').val(mock.api_name);
                     $('#response').val(mock.response);
@@ -138,22 +386,66 @@
                     $('#delay').val(mock.delay);
                     $('#method').val(mock.method);
                     $('#mock-id').val(mock.id);
-                    $('#response-length').text(`Characters: ${mock.response.length}`);
+                    $('#response-info').text(`Characters: ${mock.response.length} | Size: ${(new Blob([mock.response]).size / 1024).toFixed(2)} KB`);
+                    $('#loading').hide();
+                    if (isJsonView) {
+                        $('#toggleJsonViewBtn').click(); // Toggle back to JSON view if it's already active
+                    }
                 });
             };
 
             window.deleteMock = function(id) {
+                $('#loading').show();
                 $.ajax({
                     type: 'DELETE',
                     url: `/delete-mock/${id}`,
                     success: function() {
                         $(`#mock-table-body tr[data-id="${id}"]`).fadeOut();
+                        $('#loading').hide();
                     },
                     error: function(xhr) {
                         alert('Failed to delete mock: ' + xhr.responseText);
+                        $('#loading').hide();
                     }
                 });
             };
+
+            function updateResponseInfo() {
+                const length = $('#response').val().length;
+                const sizeInKb = (new Blob([$('#response').val()]).size / 1024).toFixed(2);
+                $('#response-info').text(`Characters: ${length} | Size: ${sizeInKb} KB`);
+                Prism.highlightAll();
+            }
+
+            function validateForm() {
+                let isValid = true;
+
+                const apiName = $('#api_name').val();
+                if (/\s/.test(apiName)) {
+                    $('#api-name-error').show();
+                    isValid = false;
+                } else {
+                    $('#api-name-error').hide();
+                }
+
+                const status = $('#status').val();
+                if (!validStatusCodes.includes(status)) {
+                    $('#status-error').show();
+                    isValid = false;
+                } else {
+                    $('#status-error').hide();
+                }
+
+                const delay = parseInt($('#delay').val(), 10);
+                if (isNaN(delay) || delay < 0 || delay > 60000) {
+                    $('#delay-error').show();
+                    isValid = false;
+                } else {
+                    $('#delay-error').hide();
+                }
+
+                return isValid;
+            }
         });
     </script>
 </body>

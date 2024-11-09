@@ -1,0 +1,27 @@
+# deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: omock-deployment
+  labels:
+    app: omock
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: omock
+  template:
+    metadata:
+      labels:
+        app: omock
+    spec:
+      containers:
+      - name: omock
+        image: your-docker-image:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
