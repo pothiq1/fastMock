@@ -6,6 +6,8 @@ authors = ["Md Hasan Basri <pothiq@gmail.com>"]
 license = "MIT"
 
 [dependencies]
+rust-embed = "6.4.0"
+
 # Actix and related crates
 actix-web = "4"
 actix-web-codegen = "4.3"
@@ -52,3 +54,6 @@ chrono = { version = "0.4", features = ["serde"] }
 
 # Regex for string pattern matching
 regex = "1.5"
+
+# OpenSSL from source
+openssl = { version = "0.10", features = ["vendored"] }
