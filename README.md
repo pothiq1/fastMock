@@ -7,22 +7,20 @@ A dynamic mock API server built with [Rust](https://www.rust-lang.org/) and [Act
 - [Overview](#overview)
 - [Features and Capabilities](#features-and-capabilities)
 - [Prerequisites](#prerequisites)
-- [Installation](#installation)
-   - [Clone the Repository](#clone-the-repository)
-   - [Build the Project](#build-the-project)
-   - [Run the Server Locally](#run-the-server-locally)
+- [Deployment](#deployment)
+    - [Deploying with Kubernetes](#deploying-with-kubernetes)
 - [Usage](#usage)
-   - [Access the Web API Manager](#access-the-web-api-manager)
-   - [Managing Mocks via Web Interface](#managing-mocks-via-web-interface)
-   - [Dynamic Response Generation](#dynamic-response-generation)
-      - [Query Parameters](#query-parameters)
-      - [Headers](#headers)
-      - [JSON Body Fields](#json-body-fields)
-      - [Arrays and Nested JSON](#arrays-and-nested-json)
-      - [Path Parameters](#path-parameters)
-      - [Built-in Handlebars Helpers](#built-in-handlebars-helpers)
-   - [Supported API Endpoints](#supported-api-endpoints)
-   - [Example Usage with curl](#example-usage-with-curl)
+    - [Access the Web API Manager](#access-the-web-api-manager)
+    - [Capabilities of the Web UI](#capabilities-of-the-web-ui)
+    - [Managing Mocks via Web Interface](#managing-mocks-via-web-interface)
+    - [Dynamic Response Generation](#dynamic-response-generation)
+        - [Query Parameters](#query-parameters)
+        - [Headers](#headers)
+        - [JSON Body Fields](#json-body-fields)
+        - [Arrays and Nested JSON](#arrays-and-nested-json)
+        - [Path Parameters](#path-parameters)
+        - [Built-in Handlebars Helpers](#built-in-handlebars-helpers)
+- [Example Usage with curl](#example-usage-with-curl)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -35,89 +33,138 @@ Built with high-performance Rust and Actix Web, the Mock API Manager offers dyna
 ## Features and Capabilities
 
 1. **Dynamic Mock Responses**:
-   - **HTTP Method Support**: Supports `GET`, `POST`, `PUT`, and `DELETE`.
-   - **Custom Status Codes**: Return any valid HTTP status code.
-   - **Response Delay Simulation**: Add artificial delays to responses to simulate network latency.
-   - **Configurable Response Bodies**: Define custom JSON responses, including dynamic content.
+    - **HTTP Method Support**: Supports `GET`, `POST`, `PUT`, and `DELETE`.
+    - **Custom Status Codes**: Return any valid HTTP status code.
+    - **Response Delay Simulation**: Add artificial delays to responses to simulate network latency.
+    - **Configurable Response Bodies**: Define custom JSON responses, including dynamic content.
 
 2. **Dynamic Placeholder Replacement**:
-   - **Request-based Placeholders**: Replace placeholders in responses with values from query parameters, headers, JSON body fields, arrays, or path parameters.
-   - **Built-in Helpers**: Use Handlebars helpers for dynamic data generation, such as timestamps, random numbers, and strings.
+    - **Request-based Placeholders**: Replace placeholders in responses with values from query parameters, headers, JSON body fields, arrays, or path parameters.
+    - **Built-in Helpers**: Use Handlebars helpers for dynamic data generation, such as timestamps, random numbers, and strings.
 
 3. **Web API Manager**:
-   - **Intuitive Interface**: Manage mocks via a web-based form with real-time validation and feedback.
-   - **Mock List Management**: View, edit, or delete existing mocks directly from the interface.
-   - **Syntax Highlighting**: Enhanced JSON editing experience with syntax highlighting and formatting tools.
+    - **Intuitive Interface**: Manage mocks via a web-based form with real-time validation and feedback.
+    - **Mock List Management**: View, edit, or delete existing mocks directly from the interface.
+    - **Syntax Highlighting**: Enhanced JSON editing experience with syntax highlighting and formatting tools.
 
 4. **High Performance**:
-   - **Built with Rust**: Leveraging Rust's speed and safety for high throughput and low latency.
-   - **Optimized Server**: Actix Web ensures efficient handling of concurrent connections.
+    - **Built with Rust**: Leveraging Rust's speed and safety for high throughput and low latency.
+    - **Optimized Server**: Actix Web ensures efficient handling of concurrent connections.
 
 5. **Logging and Debugging**:
-   - **Environment-based Logging**: Integrated logging with `env_logger` for tracking and debugging.
-   - **Error Handling**: Comprehensive error messages for easier troubleshooting.
+    - **Environment-based Logging**: Integrated logging with `env_logger` for tracking and debugging.
+    - **Error Handling**: Comprehensive error messages for easier troubleshooting.
 
 6. **Scalability**:
-   - **In-memory Storage**: Efficient storage of mocks for fast access.
-   - **Designed for Load-Balancing**: Ready for deployment in scalable environments.
+    - **In-memory Storage**: Efficient storage of mocks for fast access.
+    - **Designed for Load-Balancing**: Ready for deployment in scalable environments.
 
 ## Prerequisites
 
-- **Rust**: Version 1.56 or newer. [Install Rust](https://www.rust-lang.org/tools/install)
-- **Cargo**: Rust package manager (comes with Rust installation).
-- **Optional**:
-   - **Docker**: For containerized deployment. [Install Docker](https://docs.docker.com/get-docker/)
+- **Kubernetes**: To deploy the application using Kubernetes.
+- **kubectl**: Kubernetes command-line tool to interact with your cluster.
 
-## Installation
+## Deployment
 
-### Clone the Repository
+### Deploying with Kubernetes
 
-```bash
-git clone https://github.com/your-username/mock-api-manager.git
-cd mock-api-manager
-```
+You can deploy the Mock API Manager to your Kubernetes cluster using the provided `deployment.yaml` and `service.yaml` files.
 
-*Replace `your-username` with your GitHub username or the appropriate repository owner.*
+1. **Apply the Deployment Configuration**:
 
-### Build the Project
+   ```bash
+   kubectl apply -f deployment.yaml
+   ```
 
-```bash
-cargo build --release
-```
+2. **Apply the Service Configuration**:
 
-### Run the Server Locally
+   ```bash
+   kubectl apply -f service.yaml
+   ```
 
-```bash
-cargo run --release
-```
+3. **Verify the Deployment**:
 
-This will start the server on `http://localhost:8080`.
+   ```bash
+   kubectl get deployments
+   kubectl get services
+   ```
+
+   Ensure that the deployment and service are running correctly.
+
+4. **Access the Application**:
+
+   Depending on your cluster setup, you might need to use port forwarding or expose the service externally.
+
+    - **Port Forwarding**:
+
+      ```bash
+      kubectl port-forward service/mock-api-manager 8080:8080
+      ```
+
+      Now, you can access the application at `http://localhost:8080`.
+
+    - **External Access**:
+
+      If your service is exposed externally (e.g., using a LoadBalancer), access the application using the external IP.
 
 ## Usage
 
 ### Access the Web API Manager
 
-Open your browser and navigate to `http://localhost:8080` to access the Mock API Manager's web interface.
+Open your browser and navigate to `http://localhost:8080` (or the appropriate external IP) to access the Mock API Manager's web interface.
+
+### Capabilities of the Web UI
+
+The web interface of the Mock API Manager provides a user-friendly dashboard to manage your mock APIs effectively.
+
+- **Dashboard Overview**:
+    - **Real-time Statistics**: View the total number of mocks, recent activity, and system status.
+    - **Search and Filter**: Easily find mocks using search functionality and filters.
+
+- **Mock Management**:
+    - **Create New Mocks**: Define new mock endpoints with customized responses.
+    - **Edit Existing Mocks**: Update the configurations of your mocks seamlessly.
+    - **Delete Mocks**: Remove mocks that are no longer needed.
+
+- **Response Configuration**:
+    - **JSON Editor**: A built-in JSON editor with syntax highlighting and validation.
+    - **Dynamic Placeholders**: Insert placeholders in responses for dynamic data rendering.
+    - **Response Preview**: Preview how the response will look before saving.
+
+- **Theme Customization**:
+    - **Settings Menu**: Personalize the interface with different themes and background colors.
+    - **Persistent Settings**: Your theme preferences are saved for future sessions.
+
+- **Help and Documentation**:
+    - **Guided Tutorials**: Access step-by-step guides directly from the UI.
+    - **API Reference**: Quick access to API endpoints and usage examples.
+
+<div style="text-align: center;">
+  <img src="dashboard.jpg" alt="Dashboard Screenshot" width="90%" style="max-width:800px;" />
+  <div style="margin-top: 10px;">
+    <b>Figure:</b> Mock API Manager Dashboard
+  </div>
+</div>
 
 ### Managing Mocks via Web Interface
 
 The Web API Manager provides an intuitive interface for creating, editing, and deleting mocks.
 
 - **Create a New Mock**:
-   1. Fill in the fields in the form:
-      - **API Name**: Unique identifier for your mock API endpoint (no spaces allowed).
-      - **Response**: JSON-formatted response body, can include Handlebars placeholders like `{{username}}`.
-      - **Status Code**: HTTP status code to return (e.g., 200, 404).
-      - **Response Delay**: Optional delay in milliseconds to simulate network latency.
-      - **HTTP Method**: HTTP method to which this mock should respond (`GET`, `POST`, etc.).
-   2. Click **Save Mock** to create the mock API.
+    1. Fill in the fields in the form:
+        - **API Name**: Unique identifier for your mock API endpoint (no spaces allowed).
+        - **Response**: JSON-formatted response body, can include Handlebars placeholders like `{{username}}`.
+        - **Status Code**: HTTP status code to return (e.g., 200, 404).
+        - **Response Delay**: Optional delay in milliseconds to simulate network latency.
+        - **HTTP Method**: HTTP method to which this mock should respond (`GET`, `POST`, etc.).
+    2. Click **Save Mock** to create the mock API.
 
 - **Edit an Existing Mock**:
-   - Click the **Edit** button next to the mock entry in the **Current Mocks** table. The form will auto-fill with the mock's current data for editing.
-   - Make the necessary changes and click **Save Mock**.
+    - Click the **Edit** button next to the mock entry in the **Current Mocks** table. The form will auto-fill with the mock's current data for editing.
+    - Make the necessary changes and click **Save Mock**.
 
 - **Delete a Mock**:
-   - Click the **Delete** button next to the mock entry to remove it.
+    - Click the **Delete** button next to the mock entry to remove it.
 
 ### Dynamic Response Generation
 
@@ -161,7 +208,12 @@ The Mock API Manager supports dynamic content in responses using Handlebars temp
 
   ```bash
   GET /mock/header-example
-  Header: X-Custom-Header: CustomValue
+  ```
+
+  Header:
+
+  ```
+  X-Custom-Header: CustomValue
   ```
 
 - **Response Template**:
@@ -315,511 +367,85 @@ The Mock API Manager includes several built-in helpers to generate dynamic conte
 
 1. **`current_datetime`**: Inserts the current date and time.
 
-   - **Usage**: `{{current_datetime "format"}}`
-   - **Example**:
+    - **Usage**: `{{current_datetime "format"}}`
+    - **Example**:
 
-     ```json
-     {
-       "timestamp": "{{current_datetime \"%Y-%m-%d %H:%M:%S\"}}"
-     }
-     ```
+      ```json
+      {
+        "timestamp": "{{current_datetime \"%Y-%m-%d %H:%M:%S\"}}"
+      }
+      ```
 
-   - **Resulting Response**:
+    - **Resulting Response**:
 
-     ```json
-     {
-       "timestamp": "2024-11-09 12:34:56"
-     }
-     ```
+      ```json
+      {
+        "timestamp": "2024-11-09 12:34:56"
+      }
+      ```
 
 2. **`random_number`**: Generates a random number within a specified range.
 
-   - **Usage**: `{{random_number min max}}`
-   - **Example**:
+    - **Usage**: `{{random_number min max}}`
+    - **Example**:
 
-     ```json
-     {
-       "verification_code": "{{random_number 1000 9999}}"
-     }
-     ```
+      ```json
+      {
+        "verification_code": "{{random_number 1000 9999}}"
+      }
+      ```
 
-   - **Resulting Response**:
+    - **Resulting Response**:
 
-     ```json
-     {
-       "verification_code": "4821"
-     }
-     ```
+      ```json
+      {
+        "verification_code": "4821"
+      }
+      ```
 
 3. **`ordered_number`**: Generates an incrementing number each time it is called.
 
-   - **Usage**: `{{ordered_number}}`
-   - **Example**:
+    - **Usage**: `{{ordered_number}}`
+    - **Example**:
 
-     ```json
-     {
-       "order_id": "{{ordered_number}}"
-     }
-     ```
+      ```json
+      {
+        "order_id": "{{ordered_number}}"
+      }
+      ```
 
-   - **Resulting Response**:
+    - **Resulting Response**:
 
-     ```json
-     {
-       "order_id": "1"
-     }
-     ```
+      ```json
+      {
+        "order_id": "1"
+      }
+      ```
 
 4. **`random_string`**: Generates a random string matching a given regex pattern.
 
-   - **Usage**: `{{random_string "regex_pattern"}}`
-   - **Example**:
+    - **Usage**: `{{random_string "regex_pattern"}}`
+    - **Example**:
 
-     ```json
-     {
-       "session_token": "{{random_string \"[A-Za-z0-9]{16}\"}}"
-     }
-     ```
+      ```json
+      {
+        "session_token": "{{random_string \"[A-Za-z0-9]{16}\"}}"
+      }
+      ```
 
-   - **Resulting Response**:
+    - **Resulting Response**:
 
-     ```json
-     {
-       "session_token": "a1B2c3D4e5F6g7H8"
-     }
-     ```
+      ```json
+      {
+        "session_token": "a1B2c3D4e5F6g7H8"
+      }
+      ```
+
 
 **Note**: When using special characters in format strings or regex patterns, ensure they are properly escaped.
-
-### Supported API Endpoints
-
-- **GET `/list-mocks`**: Returns a list of all saved mocks.
-- **POST `/save-mock`**: Saves a new mock API.
-- **PUT `/update-mock/{id}`**: Updates an existing mock.
-- **DELETE `/delete-mock/{id}`**: Deletes a mock by ID.
-- **GET `/get-mock/{id}`**: Retrieves a single mock by ID.
-- **Dynamic Endpoint `/mock/{api_name}`**: Returns a dynamic response for the specified mock endpoint.
-
-### Example Usage with curl
-
-#### Save a New Mock
-
-```bash
-curl -X POST http://localhost:8080/save-mock \
--H "Content-Type: application/json" \
--d '{
-    "api_name": "greeting",
-    "response": "{\"message\": \"Hello, {{name}}!\"}",
-    "status": 200,
-    "delay": 0,
-    "method": "GET"
-}'
-```
-
-#### Access the Mock Response Using Query Parameters
-
-```bash
-curl -X GET 'http://localhost:8080/mock/greeting?name=Alice'
-```
-
-**Response**:
-
-```json
-{
-  "message": "Hello, Alice!"
-}
-```
-
-#### Access the Mock Response Using Headers
-
-First, save a mock that uses a header value:
-
-```bash
-curl -X POST http://localhost:8080/save-mock \
--H "Content-Type: application/json" \
--d '{
-    "api_name": "header-example",
-    "response": "{\"received_header\": \"{{X-Custom-Header}}\"}",
-    "status": 200,
-    "delay": 0,
-    "method": "GET"
-}'
-```
-
-Then, make a request with the custom header:
-
-```bash
-curl -X GET http://localhost:8080/mock/header-example \
--H "X-Custom-Header: CustomValue"
-```
-
-**Response**:
-
-```json
-{
-  "received_header": "CustomValue"
-}
-```
-
-#### Access the Mock Response Using JSON Body Fields
-
-First, save a mock that uses JSON body fields:
-
-```bash
-curl -X POST http://localhost:8080/save-mock \
--H "Content-Type: application/json" \
--d '{
-    "api_name": "login",
-    "response": "{\"status\": \"User {{username}} logged in successfully\"}",
-    "status": 200,
-    "delay": 0,
-    "method": "POST"
-}'
-```
-
-Then, make a POST request with a JSON body:
-
-```bash
-curl -X POST http://localhost:8080/mock/login \
--H "Content-Type: application/json" \
--d '{"username": "Bob", "password": "secret"}'
-```
-
-**Response**:
-
-```json
-{
-  "status": "User Bob logged in successfully"
-}
-```
-
-#### Access the Mock Response Using Arrays and Nested JSON
-
-First, save a mock that processes arrays in the request body:
-
-```bash
-curl -X POST http://localhost:8080/save-mock \
--H "Content-Type: application/json" \
--d '{
-    "api_name": "process-items",
-    "response": "{
-      \"processed_items\": [
-        {{#each items}}
-        {
-          \"item_id\": \"{{id}}\",
-          \"item_name\": \"{{name}}\"
-        }{{#unless @last}},{{/unless}}
-        {{/each}}
-      ],
-      \"total_items\": \"{{total}}\"
-    }",
-    "status": 200,
-    "delay": 0,
-    "method": "POST"
-}'
-```
-
-Then, make a POST request with an array in the JSON body:
-
-```bash
-curl -X POST http://localhost:8080/mock/process-items \
--H "Content-Type: application/json" \
--d '{
-  "items": [
-    {"id": 1, "name": "ItemOne"},
-    {"id": 2, "name": "ItemTwo"}
-  ],
-  "total": 2
-}'
-```
-
-**Response**:
-
-```json
-{
-  "processed_items": [
-    {
-      "item_id": "1",
-      "item_name": "ItemOne"
-    },
-    {
-      "item_id": "2",
-      "item_name": "ItemTwo"
-    }
-  ],
-  "total_items": "2"
-}
-```
-
-#### Access the Mock Response Using Path Parameters
-
-Since path parameters are part of the `api_name`, you can define mocks that include variable segments.
-
-- **Save a Mock**:
-
-  ```bash
-  curl -X POST http://localhost:8080/save-mock \
-  -H "Content-Type: application/json" \
-  -d '{
-      "api_name": "user-{{userId}}",
-      "response": "{\"userId\": \"{{userId}}\", \"details\": \"Details for user {{userId}}\"}",
-      "status": 200,
-      "delay": 0,
-      "method": "GET"
-  }'
-  ```
-
-- **Access the Mock**:
-
-  ```bash
-  curl -X GET http://localhost:8080/mock/user-42
-  ```
-
-- **Response**:
-
-  ```json
-  {
-    "userId": "42",
-    "details": "Details for user 42"
-  }
-  ```
-
-**Note**: This method simulates path parameters by embedding them in the `api_name`.
-
-#### Utilize Built-in Helpers
-
-First, save a mock that uses built-in helpers:
-
-```bash
-curl -X POST http://localhost:8080/save-mock \
--H "Content-Type: application/json" \
--d '{
-    "api_name": "generate-code",
-    "response": "{\"timestamp\": \"{{current_datetime \\\"%Y-%m-%dT%H:%M:%SZ\\\"}}\", \"code\": \"{{random_number 1000 9999}}\"}",
-    "status": 200,
-    "delay": 0,
-    "method": "GET"
-}'
-```
-
-Then, access the mock:
-
-```bash
-curl -X GET http://localhost:8080/mock/generate-code
-```
-
-**Response**:
-
-```json
-{
-  "timestamp": "2024-11-09T12:34:56Z",
-  "code": "5678"
-}
-```
-
-#### Simulate Response Delay
-
-You can simulate network latency by specifying a delay in milliseconds when creating the mock.
-
-**Example**:
-
-- **Create a Mock with Delay**:
-
-  ```bash
-  curl -X POST http://localhost:8080/save-mock \
-  -H "Content-Type: application/json" \
-  -d '{
-      "api_name": "delayed-response",
-      "response": "{\"message\": \"This response is delayed by 2 seconds.\"}",
-      "status": 200,
-      "delay": 2000,
-      "method": "GET"
-  }'
-  ```
-
-- **Access the Mock**:
-
-  ```bash
-  curl -X GET http://localhost:8080/mock/delayed-response
-  ```
-
-- **Result**: The response will be delayed by approximately 2 seconds.
-
-#### Use Custom Status Codes
-
-You can specify any valid HTTP status code when creating a mock.
-
-**Example**:
-
-- **Create a Mock with 404 Status**:
-
-  ```bash
-  curl -X POST http://localhost:8080/save-mock \
-  -H "Content-Type: application/json" \
-  -d '{
-      "api_name": "not-found-example",
-      "response": "{\"error\": \"Resource not found.\"}",
-      "status": 404,
-      "delay": 0,
-      "method": "GET"
-  }'
-  ```
-
-- **Access the Mock**:
-
-  ```bash
-  curl -X GET http://localhost:8080/mock/not-found-example
-  ```
-
-- **Response**:
-
-  ```json
-  {
-    "error": "Resource not found."
-  }
-  ```
-
-   - The HTTP status code of the response will be 404.
-
-#### Simulate Different HTTP Methods
-
-Mocks respond only to the HTTP method specified during creation.
-
-**Example**:
-
-- **Create a Mock that Responds to POST**:
-
-  ```bash
-  curl -X POST http://localhost:8080/save-mock \
-  -H "Content-Type: application/json" \
-  -d '{
-      "api_name": "create-user",
-      "response": "{\"message\": \"User {{username}} created.\"}",
-      "status": 201,
-      "delay": 0,
-      "method": "POST"
-  }'
-  ```
-
-- **Attempt GET Request**:
-
-  ```bash
-  curl -X GET http://localhost:8080/mock/create-user?username=Charlie
-  ```
-
-- **Response**:
-
-  ```json
-  "Method not allowed for this mock"
-  ```
-
-- **Make a POST Request**:
-
-  ```bash
-  curl -X POST http://localhost:8080/mock/create-user \
-  -H "Content-Type: application/json" \
-  -d '{"username": "Charlie"}'
-  ```
-
-- **Response**:
-
-  ```json
-  {
-    "message": "User Charlie created."
-  }
-  ```
-
-#### Combine Multiple Dynamic Elements
-
-You can combine query parameters, headers, body fields, arrays, and helpers in your response templates.
-
-**Example**:
-
-- **Save a Mock**:
-
-  ```bash
-  curl -X POST http://localhost:8080/save-mock \
-  -H "Content-Type: application/json" \
-  -d '{
-      "api_name": "complex-example",
-      "response": "{
-        \"user\": \"{{username}}\",
-        \"items\": [
-          {{#each items}}
-          {
-            \"id\": \"{{id}}\",
-            \"name\": \"{{name}}\"
-          }{{#unless @last}},{{/unless}}
-          {{/each}}
-        ],
-        \"token\": \"{{random_string \\\"[A-Za-z0-9]{16}\\\"}}\",
-        \"requested_at\": \"{{current_datetime \\\"%Y-%m-%dT%H:%M:%SZ\\\"}}\",
-        \"user_agent\": \"{{User-Agent}}\"
-      }",
-      "status": 200,
-      "delay": 0,
-      "method": "POST"
-  }'
-  ```
-
-- **Access the Mock**:
-
-  ```bash
-  curl -X POST 'http://localhost:8080/mock/complex-example?username=Dave' \
-  -H "User-Agent: curl/7.68.0" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "items": [
-      {"id": 1, "name": "ItemOne"},
-      {"id": 2, "name": "ItemTwo"}
-    ]
-  }'
-  ```
-
-- **Response**:
-
-  ```json
-  {
-    "user": "Dave",
-    "items": [
-      {
-        "id": "1",
-        "name": "ItemOne"
-      },
-      {
-        "id": "2",
-        "name": "ItemTwo"
-      }
-    ],
-    "token": "a1B2c3D4e5F6g7H8",
-    "requested_at": "2024-11-09T12:34:56Z",
-    "user_agent": "curl/7.68.0"
-  }
-  ```
-
-## Contributing
-
-Contributions are welcome! Please follow these guidelines:
-
-- **Fork the Repository**: Create a personal fork of the repository on GitHub.
-- **Create a Feature Branch**: Develop your feature or fix in a dedicated branch.
-- **Write Tests**: Ensure your code changes are covered by tests.
-- **Submit a Pull Request**: Create a pull request against the main repository.
-
-Please ensure:
-
-- Code is formatted using `rustfmt`.
-- All existing tests pass.
-- Commit messages are clear and descriptive.
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
 ---
 
 *Developed by [Md Hasan Basri](https://www.linkedin.com/in/pothiq/)*
 
 *Version 1.0.0 | Build Year: 2024*
-
----
