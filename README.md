@@ -289,6 +289,8 @@ The Mock API Manager supports dynamic content in responses using Handlebars temp
 
 - **Response Template**:
 
+#### Response Template:
+
   ```json
   {
     "processed_items": [
@@ -301,7 +303,6 @@ The Mock API Manager supports dynamic content in responses using Handlebars temp
     ],
     "total_items": "{{total}}"
   }
-  ```
 
 - **Resulting Response**:
 
