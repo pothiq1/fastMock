@@ -6,7 +6,9 @@
 use crate::models::MockAPI;
 use crate::state::AppState;
 use crate::utils::get_other_pod_ips;
-use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse, Responder};
+use actix_web::{
+    delete, get, post, put, web, HttpRequest, HttpResponse, Responder,
+};
 use reqwest::Client;
 use serde_json::Value;
 use tokio::spawn;
@@ -44,7 +46,7 @@ async fn update_mock(
         return HttpResponse::NotFound().json("Mock not found");
     }
 
-    // Call get_other_pod_ips without arguments
+    // Synchronize with other pods
     let other_pod_ips = match get_other_pod_ips().await {
         Ok(ips) => ips,
         Err(e) => {
@@ -105,7 +107,7 @@ async fn save_mock(
         .api_name_to_id
         .insert(mock.api_name.clone(), mock_id);
 
-    // Call get_other_pod_ips without arguments
+    // Synchronize with other pods
     let other_pod_ips = match get_other_pod_ips().await {
         Ok(ips) => ips,
         Err(e) => {
@@ -123,11 +125,11 @@ async fn save_mock(
 
         spawn(async move {
             let _ = client_clone
-                    .post(&url)
-                    .header("X-Internal-Token", "S8d6xG1dA3fN7K9mA2jH4R6kB8vL0T5w") // Add the token header
-                    .json(&mock_clone)
-                    .send()
-                    .await;
+                .post(&url)
+                .header("X-Internal-Token", "S8d6xG1dA3fN7K9mA2jH4R6kB8vL0T5w") // Add the token header
+                .json(&mock_clone)
+                .send()
+                .await;
         });
     }
 
@@ -162,7 +164,7 @@ async fn delete_mock(
         return HttpResponse::NotFound().json("Mock not found");
     }
 
-    // Call get_other_pod_ips without arguments
+    // Synchronize with other pods
     let other_pod_ips = match get_other_pod_ips().await {
         Ok(ips) => ips,
         Err(e) => {
@@ -179,10 +181,10 @@ async fn delete_mock(
 
         spawn(async move {
             let _ = client_clone
-            .delete(&url)
-            .header("X-Internal-Token", "S8d6xG1dA3fN7K9mA2jH4R6kB8vL0T5w")
-            .send()
-            .await;
+                .delete(&url)
+                .header("X-Internal-Token", "S8d6xG1dA3fN7K9mA2jH4R6kB8vL0T5w")
+                .send()
+                .await;
         });
     }
 
@@ -250,12 +252,11 @@ async fn delete_mock_internal(
     }
 }
 
-/// Handle mock requests based on api_name with dynamic placeholders
-#[get("/mock/{api_name}")]
-async fn handle_mock(
+/// Handle mock requests based on api_name with dynamic methods and placeholders
+pub async fn handle_mock(
     path: web::Path<String>,
     req: HttpRequest,
-    body: web::Bytes, // Accept body as `web::Bytes`
+    body: web::Bytes,
     state: web::Data<AppState>,
 ) -> impl Responder {
     let api_name = path.into_inner();
@@ -265,7 +266,7 @@ async fn handle_mock(
         if let Some(mock) = state.mocks.get(&mock_id.value()) {
             let mock = mock.clone();
 
-            if req.method() == mock.method.as_str() {
+            if req.method().as_str().eq_ignore_ascii_case(&mock.method) {
                 // Initialize data map
                 let mut data = serde_json::Map::new();
 
@@ -289,16 +290,22 @@ async fn handle_mock(
                 // Extract request body
                 if let Some(content_type) = req.headers().get("Content-Type") {
                     if content_type.to_str().unwrap_or("").contains("application/json") {
-                        // Read and parse the request body
-                        let json_body: Value = match serde_json::from_slice(&body) {
-                            Ok(json) => json,
-                            Err(e) => {
-                                eprintln!("Failed to parse JSON body: {}", e);
-                                return HttpResponse::BadRequest().json("Failed to parse JSON body");
+                        if !body.is_empty() {
+                            // Read and parse the request body
+                            let json_body: Value = match serde_json::from_slice(&body) {
+                                Ok(json) => json,
+                                Err(e) => {
+                                    eprintln!("Failed to parse JSON body: {}", e);
+                                    return HttpResponse::BadRequest()
+                                        .json("Failed to parse JSON body");
+                                }
+                            };
+                            if let Some(obj) = json_body.as_object() {
+                                data.extend(obj.clone());
                             }
-                        };
-                        if let Some(obj) = json_body.as_object() {
-                            data.extend(obj.clone());
+                        } else {
+                            // Body is empty; proceed without parsing
+                            // Optionally handle this scenario
                         }
                     }
                 }

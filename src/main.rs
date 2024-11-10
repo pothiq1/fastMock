@@ -1,3 +1,5 @@
+// src/main.rs
+
 // Author: Md Hasan Basri
 // Email: pothiq@gmail.com
 
@@ -12,17 +14,17 @@ use crate::routes::{
 };
 use crate::state::AppState;
 use actix_files as fs;
-use actix_web::{web, App, HttpServer, HttpResponse, HttpRequest, Responder};
+use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
 use dashmap::DashMap;
 use env_logger::Env;
 use handlebars::Handlebars;
 use models::MockAPI;
 use num_cpus;
 use reqwest::Client;
-use utils::{get_other_pod_ips, register_helpers};
+use rust_embed::RustEmbed;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
-use rust_embed::RustEmbed;
+use utils::{get_other_pod_ips, register_helpers};
 
 #[derive(RustEmbed)]
 #[folder = "static/"] // Updated to reference the folder directly within /app
@@ -125,7 +127,11 @@ async fn run_server() -> std::io::Result<()> {
                 .service(get_mock)
                 .service(save_mock_internal)
                 .service(delete_mock_internal)
-                .service(handle_mock)
+                // Updated route registration for handle_mock
+                .route(
+                    "/mock/{api_name}",
+                    web::route().to(handle_mock),
+                )
                 .route("/", web::get().to(index))
                 .route("/static/{filename:.*}", web::get().to(static_files))
                 .service(fs::Files::new("/static", "./static").show_files_listing())
