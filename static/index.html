@@ -8,29 +8,19 @@
     <!-- DataTables with Bootstrap 4 CSS -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap4.min.css">
     <!-- Custom CSS for styling -->
-    <style id="theme-style">
-        :root {
-            --bg-color: #f8f9fa;
-            --text-color: #343a40;
-            --link-color: #007bff;
-            --btn-bg-color: #007bff;
-            --btn-hover-bg-color: #0056b3;
-            --navbar-bg-color: #ffffff;
-            --navbar-text-color: #343a40;
-        }
+    <style>
         body {
-            background-color: var(--bg-color);
-            color: var(--text-color);
+            background-color: #f8f9fa;
         }
         h1, h2 {
-            color: inherit;
+            color: #343a40;
         }
         .btn-primary {
-            background-color: var(--btn-bg-color);
+            background-color: #007bff;
             border: none;
         }
         .btn-primary:hover {
-            background-color: var(--btn-hover-bg-color);
+            background-color: #0056b3;
         }
         .table thead th {
             vertical-align: middle;
@@ -70,11 +60,11 @@
         }
         .expanded::before {
             content: "- ";
-            color: var(--link-color);
+            color: #007bff;
         }
         .collapsed::before {
             content: "+ ";
-            color: var(--link-color);
+            color: #007bff;
         }
         .collapsible-placeholder {
             display: inline;
@@ -106,18 +96,18 @@
         }
         footer {
             position: fixed;
-            bottom: 0;
+            bottom: 10px;
             left: 0;
             width: 100%;
             text-align: center;
             font-size: 0.875em;
-            color: var(--text-color);
-            padding: 10px 0;
+            color: #555;
+            padding: 5px 0;
             background: rgba(255, 255, 255, 0.9);
             border-top: 1px solid #ddd;
         }
         footer a {
-            color: var(--link-color);
+            color: #007bff;
             text-decoration: none;
             font-weight: 500;
         }
@@ -128,13 +118,6 @@
             color: #777;
             margin-top: 5px;
             font-size: 0.85em;
-        }
-        /* Navbar styles */
-        .navbar {
-            background-color: var(--navbar-bg-color);
-        }
-        .navbar-brand, .navbar-nav .nav-link {
-            color: var(--navbar-text-color) !important;
         }
         /* Modal custom styles */
         .modal-content {
@@ -166,8 +149,6 @@
             }
         }
     </style>
-    <!-- Favicon -->
-    <link rel="icon" href="https://img.icons8.com/ios-filled/32/000000/api.png" type="image/png">
     <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <!-- Bootstrap 4 JS -->
@@ -176,134 +157,96 @@
     <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap4.min.js"></script>
 </head>
-<body>
-    <!-- Navigation Bar with Settings Menu -->
-    <nav class="navbar navbar-expand-lg navbar-light mb-4">
-        <a class="navbar-brand" href="#">Mock API Manager</a>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavDropdown"        aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNavDropdown">
-            <!-- Add any additional navbar items here -->
+<body class="container my-5">
+    <h1 class="text-center mb-4">Mock API Manager</h1>
+
+    <!-- Notification and Loading Indicators -->
+    <div id="notification" class="alert alert-success text-center" style="display:none;">Mock API saved successfully!</div>
+    <div id="loading" class="alert alert-info text-center" style="display:none;">Processing...</div>
+
+    <!-- Mock Form -->
+    <form id="mock-form" class="mb-5">
+        <input type="hidden" id="mock-id">
+
+        <div class="form-group">
+            <label for="api_name">API Name:</label>
+            <input type="text" class="form-control" id="api_name" name="api_name" required placeholder="No spaces allowed">
+            <small id="api-name-error" class="form-text text-danger" style="display:none;">API Name should not contain whitespace.</small>
         </div>
-        <ul class="navbar-nav ml-auto">
-            <li class="nav-item dropdown">
-                <a class="nav-link dropdown-toggle" href="#" id="settingsDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                    <img src="https://img.icons8.com/ios-glyphs/24/000000/settings.png" alt="Settings">
-                </a>
-                <div class="dropdown-menu dropdown-menu-right" aria-labelledby="settingsDropdown">
-                    <h6 class="dropdown-header">Theme Settings</h6>
-                    <div class="px-3 py-2">
-                        <div class="form-group">
-                            <label for="themeSelect">Select Theme:</label>
-                            <select id="themeSelect" class="form-control">
-                                <option value="default">Default</option>
-                                <option value="light">Light</option>
-                                <option value="dark">Dark</option>
-                                <option value="blue">Blue</option>
-                                <option value="green">Green</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="bgColorPicker">Background Color:</label>
-                            <input type="color" id="bgColorPicker" class="form-control" value="#f8f9fa">
-                        </div>
-                        <button class="btn btn-sm btn-primary btn-block" id="applySettingsBtn">Apply Settings</button>
-                    </div>
-                </div>
-            </li>
-        </ul>
-    </nav>
 
-    <div class="container mb-5">
-        <!-- Notification and Loading Indicators -->
-        <div id="notification" class="alert alert-success text-center" style="display:none;">Mock API saved successfully!</div>
-        <div id="loading" class="alert alert-info text-center" style="display:none;">Processing...</div>
-
-        <!-- Mock Form -->
-        <form id="mock-form" class="mb-5">
-            <input type="hidden" id="mock-id">
-
-            <div class="form-group">
-                <label for="api_name">API Name:</label>
-                <input type="text" class="form-control" id="api_name" name="api_name" required placeholder="No spaces allowed">
-                <small id="api-name-error" class="form-text text-danger" style="display:none;">API Name should not contain whitespace.</small>
-            </div>
-
-            <div class="form-group">
-                <label for="response">Response (JSON):</label>
-                <textarea class="form-control" id="response" name="response" rows="3" required></textarea>
-                <div class="d-flex justify-content-between align-items-center mt-1">
-                    <small id="response-info" class="form-text text-muted">Characters: 0 | Size: 0 KB</small>
-                    <div>
-                        <span id="formatJsonBtn" class="text-action mr-3" title="Format JSON">Format JSON</span>
-                        <span id="expandAllBtn" class="text-action mr-3" title="Expand All" style="display: none;">Expand All</span>
-                        <span id="squeezeAllBtn" class="text-action mr-3" title="Squeeze All" style="display: none;">Squeeze All</span>
-                        <span id="toggleJsonViewBtn" class="text-action" title="Toggle JSON View">Toggle View</span>
-                    </div>
+        <div class="form-group">
+            <label for="response">Response (JSON):</label>
+            <textarea class="form-control" id="response" name="response" rows="3" required></textarea>
+            <div class="d-flex justify-content-between align-items-center mt-1">
+                <small id="response-info" class="form-text text-muted">Characters: 0 | Size: 0 KB</small>
+                <div>
+                    <span id="formatJsonBtn" class="text-action mr-3" title="Format JSON">Format JSON</span>
+                    <span id="expandAllBtn" class="text-action mr-3" title="Expand All" style="display: none;">Expand All</span>
+                    <span id="squeezeAllBtn" class="text-action mr-3" title="Squeeze All" style="display: none;">Squeeze All</span>
+                    <span id="toggleJsonViewBtn" class="text-action" title="Toggle JSON View">Toggle View</span>
                 </div>
             </div>
-
-            <div class="form-group">
-                <label for="status">Status Code:</label>
-                <input type="text" class="form-control" id="status" name="status" list="status-codes" required placeholder="e.g., 200">
-                <datalist id="status-codes">
-                    <option value="200">200 OK</option>
-                    <option value="201">201 Created</option>
-                    <option value="204">204 No Content</option>
-                    <option value="207">207 Multi-Status</option>
-                    <option value="301">301 Moved Permanently</option>
-                    <option value="304">304 Not Modified</option>
-                    <option value="400">400 Bad Request</option>
-                    <option value="401">401 Unauthorized</option>
-                    <option value="403">403 Forbidden</option>
-                    <option value="404">404 Not Found</option>
-                    <option value="429">429 Too Many Requests</option>
-                    <option value="500">500 Internal Server Error</option>
-                    <option value="502">502 Bad Gateway</option>
-                    <option value="503">503 Service Unavailable</option>
-                    <option value="504">504 Gateway Timeout</option>
-                </datalist>
-                <small id="status-error" class="form-text text-danger" style="display:none;">Please enter a valid HTTP status code.</small>
-            </div>
-
-            <div class="form-group">
-                <label for="delay">Response Delay (ms):</label>
-                <input type="number" class="form-control" id="delay" name="delay" value="0" required placeholder="0-60000">
-                <small id="delay-error" class="form-text text-danger" style="display:none;">Delay should be a number between 0 and 60000 ms.</small>
-            </div>
-
-            <div class="form-group">
-                <label for="method">HTTP Method:</label>
-                <select id="method" name="method" class="form-control">
-                    <option value="GET">GET</option>
-                    <option value="POST">POST</option>
-                    <option value="PUT">PUT</option>
-                    <option value="DELETE">DELETE</option>
-                </select>
-            </div>
-
-            <button type="button" class="btn btn-primary btn-block" id="saveButton">Save Mock</button>
-        </form>
-
-        <!-- Mock List Table -->
-        <h2 class="text-center mb-3">Current Mocks</h2>
-        <div class="table-responsive">
-            <table id="mock-table" class="table table-striped table-bordered table-hover" style="width:100%">
-                <thead class="thead-dark">
-                    <tr>
-                        <th>API Name</th>
-                        <th>Status</th>
-                        <th>Delay (ms)</th>
-                        <th>Method</th>
-                        <th style="width: 150px;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="mock-table-body">
-                    <!-- Mock entries will be populated here -->
-                </tbody>
-            </table>
         </div>
+
+        <div class="form-group">
+            <label for="status">Status Code:</label>
+            <input type="text" class="form-control" id="status" name="status" list="status-codes" required placeholder="e.g., 200">
+            <datalist id="status-codes">
+                <option value="200">200 OK</option>
+                <option value="201">201 Created</option>
+                <option value="204">204 No Content</option>
+                <option value="207">207 Multi-Status</option>
+                <option value="301">301 Moved Permanently</option>
+                <option value="304">304 Not Modified</option>
+                <option value="400">400 Bad Request</option>
+                <option value="401">401 Unauthorized</option>
+                <option value="403">403 Forbidden</option>
+                <option value="404">404 Not Found</option>
+                <option value="429">429 Too Many Requests</option>
+                <option value="500">500 Internal Server Error</option>
+                <option value="502">502 Bad Gateway</option>
+                <option value="503">503 Service Unavailable</option>
+                <option value="504">504 Gateway Timeout</option>
+            </datalist>
+            <small id="status-error" class="form-text text-danger" style="display:none;">Please enter a valid HTTP status code.</small>
+        </div>
+
+        <div class="form-group">
+            <label for="delay">Response Delay (ms):</label>
+            <input type="number" class="form-control" id="delay" name="delay" value="0" required placeholder="0-60000">
+            <small id="delay-error" class="form-text text-danger" style="display:none;">Delay should be a number between 0 and 60000 ms.</small>
+        </div>
+
+        <div class="form-group">
+            <label for="method">HTTP Method:</label>
+            <select id="method" name="method" class="form-control">
+                <option value="GET">GET</option>
+                <option value="POST">POST</option>
+                <option value="PUT">PUT</option>
+                <option value="DELETE">DELETE</option>
+            </select>
+        </div>
+
+        <button type="button" class="btn btn-primary btn-block" id="saveButton">Save Mock</button>
+    </form>
+
+    <!-- Mock List Table -->
+    <h2 class="text-center mb-3">Current Mocks</h2>
+    <div class="table-responsive">
+        <table id="mock-table" class="table table-striped table-bordered table-hover" style="width:100%">
+            <thead class="thead-dark">
+                <tr>
+                    <th>API Name</th>
+                    <th>Status</th>
+                    <th>Delay (ms)</th>
+                    <th>Method</th>
+                    <th style="width: 150px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="mock-table-body">
+                <!-- Mock entries will be populated here -->
+            </tbody>
+        </table>
     </div>
 
     <!-- Delete Confirmation Modal -->
@@ -333,7 +276,7 @@
         <div class="version-info">Version 1.0.0 | Build Year: 2024</div>
     </footer>
 
-    <!-- JavaScript for managing mock operations and settings -->
+    <!-- JavaScript for managing mock operations -->
     <script>
         $(document).ready(function() {
             let isJsonView = false;
@@ -342,16 +285,7 @@
             // Load mocks on page load
             loadMocks();
 
-            // Load theme settings from localStorage
-            loadThemeSettings();
-
-            // Settings menu event handlers
-            $('#applySettingsBtn').on('click', function() {
-                applyThemeSettings();
-            });
-
             // Toggle JSON View
-            // (Existing code remains the same as before)
             $('#toggleJsonViewBtn').on('click', function(event) {
                 event.preventDefault();
                 const responseElement = $('#response');
@@ -373,7 +307,7 @@
                         $('.collapsible').on('click', function() {
                             const $content = $(this).next('.collapsible-content');
                             const $placeholder = $(this).children('.collapsible-placeholder');
-
+                            
                             $(this).toggleClass('expanded').toggleClass('collapsed');
                             if ($content.is(':visible')) {
                                 $content.slideUp(200); // Collapse with animation
@@ -639,129 +573,6 @@
                     "autoWidth": false,
                     "responsive": true
                 });
-            }
-
-            // Theme settings functions
-            function applyThemeSettings() {
-                const selectedTheme = $('#themeSelect').val();
-                const bgColor = $('#bgColorPicker').val();
-
-                // Define theme styles
-                const themes = {
-                    'default': {
-                        '--bg-color': bgColor,
-                        '--text-color': '#343a40',
-                        '--link-color': '#007bff',
-                        '--btn-bg-color': '#007bff',
-                        '--btn-hover-bg-color': '#0056b3',
-                        '--navbar-bg-color': '#ffffff',
-                        '--navbar-text-color': '#343a40'
-                    },
-                    'light': {
-                        '--bg-color': bgColor,
-                        '--text-color': '#212529',
-                        '--link-color': '#007bff',
-                        '--btn-bg-color': '#007bff',
-                        '--btn-hover-bg-color': '#0056b3',
-                        '--navbar-bg-color': '#ffffff',
-                        '--navbar-text-color': '#212529'
-                    },
-                    'dark': {
-                        '--bg-color': bgColor,
-                        '--text-color': '#f8f9fa',
-                        '--link-color': '#17a2b8',
-                        '--btn-bg-color': '#17a2b8',
-                        '--btn-hover-bg-color': '#138496',
-                        '--navbar-bg-color': '#343a40',
-                        '--navbar-text-color': '#f8f9fa'
-                    },
-                    'blue': {
-                        '--bg-color': bgColor,
-                        '--text-color': '#ffffff',
-                        '--link-color': '#ffc107',
-                        '--btn-bg-color': '#0069d9',
-                        '--btn-hover-bg-color': '#005cbf',
-                        '--navbar-bg-color': '#0069d9',
-                        '--navbar-text-color': '#ffffff'
-                    },
-                    'green': {
-                        '--bg-color': bgColor,
-                        '--text-color': '#ffffff',
-                        '--link-color': '#28a745',
-                        '--btn-bg-color': '#28a745',
-                        '--btn-hover-bg-color': '#218838',
-                        '--navbar-bg-color': '#28a745',
-                        '--navbar-text-color': '#ffffff'
-                    }
-                };
-
-                const theme = themes[selectedTheme];
-
-                // Apply theme styles
-                let css = `
-                    :root {
-                        --bg-color: ${theme['--bg-color']};
-                        --text-color: ${theme['--text-color']};
-                        --link-color: ${theme['--link-color']};
-                        --btn-bg-color: ${theme['--btn-bg-color']};
-                        --btn-hover-bg-color: ${theme['--btn-hover-bg-color']};
-                        --navbar-bg-color: ${theme['--navbar-bg-color']};
-                        --navbar-text-color: ${theme['--navbar-text-color']};
-                    }
-                    body {
-                        background-color: var(--bg-color);
-                        color: var(--text-color);
-                    }
-                    h1, h2, footer {
-                        color: inherit;
-                    }
-                    .navbar {
-                        background-color: var(--navbar-bg-color);
-                    }
-                    .navbar-brand, .navbar-nav .nav-link {
-                        color: var(--navbar-text-color) !important;
-                    }
-                    a {
-                        color: var(--link-color);
-                    }
-                    a:hover {
-                        color: var(--link-color);
-                        text-decoration: underline;
-                    }
-                    .btn-primary {
-                        background-color: var(--btn-bg-color);
-                        border: none;
-                    }
-                    .btn-primary:hover {
-                        background-color: var(--btn-hover-bg-color);
-                    }
-                    .json-view {
-                        background-color: ${theme['--bg-color'] === '#ffffff' ? '#f8f9fa' : '#343a40'};
-                        color: var(--text-color);
-                    }
-                    footer {
-                        background: rgba(255, 255, 255, 0.9);
-                        color: var(--text-color);
-                    }
-                `;
-                $('#theme-style').html(css);
-
-                // Save settings to localStorage
-                localStorage.setItem('selectedTheme', selectedTheme);
-                localStorage.setItem('bgColor', bgColor);
-
-                // Close the dropdown menu
-                $('#settingsDropdown').dropdown('toggle');
-            }
-
-            function loadThemeSettings() {
-                const selectedTheme = localStorage.getItem('selectedTheme') || 'default';
-                const bgColor = localStorage.getItem('bgColor') || '#f8f9fa';
-
-                $('#themeSelect').val(selectedTheme);
-                $('#bgColorPicker').val(bgColor);
-
-                applyThemeSettings();
             }
         });
     </script>
