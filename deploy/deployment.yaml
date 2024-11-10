@@ -1,4 +1,3 @@
-# deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,7 +16,7 @@ spec:
     spec:
       containers:
       - name: omock
-        image: your-docker-image:latest
+        image: pothiq/fastmock:latest  # Updated image path
         ports:
         - containerPort: 8080
         env:
