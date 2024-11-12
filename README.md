@@ -68,7 +68,7 @@ Built with high-performance Rust and Actix Web, the Mock API Manager offers dyna
 
 ### Deploying with Kubernetes
 
-You can deploy the Mock API Manager to your Kubernetes cluster using the provided `deployment.yaml` and `service.yaml` files.
+You can deploy the Mock API Manager to your Kubernetes cluster using the provided `deployment.yaml`, `service.yaml` and `headless-service.yaml` files.
 
 1. **Apply the Deployment Configuration**:
 
