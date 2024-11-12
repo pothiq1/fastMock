@@ -76,13 +76,19 @@ You can deploy the Mock API Manager to your Kubernetes cluster using the provide
    kubectl apply -f deployment.yaml
    ```
 
-2. **Apply the Service Configuration**:
+2. **Apply the Load-Balancer Service Configuration**:
 
    ```bash
    kubectl apply -f service.yaml
    ```
 
-3. **Verify the Deployment**:
+3. **Apply the Headless Service Configuration**:
+
+   ```bash
+   kubectl apply -f headless-service.yaml
+   ```
+
+4. **Verify the Deployment**:
 
    ```bash
    kubectl get deployments
@@ -91,7 +97,7 @@ You can deploy the Mock API Manager to your Kubernetes cluster using the provide
 
    Ensure that the deployment and service are running correctly.
 
-4. **Access the Application**:
+5. **Access the Application**:
 
    Depending on your cluster setup, you might need to use port forwarding or expose the service externally.
 
