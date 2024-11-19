@@ -11,7 +11,7 @@ use handlebars::{Handlebars, Helper, Context, RenderContext, Output, HelperResul
 use rand::{distributions::Alphanumeric, Rng}; // Add `rand` imports
 use regex::Regex; // Add Regex import
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::fs;
+use std::{fs,env};
 
 static ORDERED_NUMBER: AtomicUsize = AtomicUsize::new(1);
 
@@ -32,8 +32,12 @@ pub async fn get_other_pod_ips() -> Result<Vec<String>> {
         e
     })?;
 
-    let pods: Api<Pod> = Api::namespaced(client, "default"); // Adjust namespace if needed
-    let lp = ListParams::default().labels("app=your-app-label"); // Update to match your app's label
+    // Get namespace and app label from environment variables
+    let namespace = env::var("K8S_NAMESPACE").unwrap_or_else(|_| "default".to_string());
+    let app_label = env::var("APP_LABEL").unwrap_or_else(|_| "app=omock".to_string());
+
+    let pods: Api<Pod> = Api::namespaced(client, &namespace);
+    let lp = ListParams::default().labels(&app_label);
 
     let pod_list = pods.list(&lp).await.map_err(|e| {
         eprintln!("Failed to list pods: {}", e);
