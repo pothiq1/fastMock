@@ -1,17 +1,21 @@
+// src/utils.rs
+
 // Author: Md Hasan Basri
 // Email: pothiq@gmail.com
 
-// src/utils.rs
-
-use kube::{api::{Api, ListParams}, Client}; // Kubernetes client imports
-use k8s_openapi::api::core::v1::Pod;
-use chrono::Utc;
 use anyhow::Result;
-use handlebars::{Handlebars, Helper, Context, RenderContext, Output, HelperResult};
-use rand::{distributions::Alphanumeric, Rng}; // Add `rand` imports
-use regex::Regex; // Add Regex import
+use chrono::Utc;
+use handlebars::{Context, Handlebars, Helper, HelperResult, Output, RenderContext};
+use k8s_openapi::api::core::v1::Pod;
+use kube::{
+    api::{Api, ListParams},
+    Client,
+}; // Kubernetes client imports
+use rand::{distributions::Alphanumeric, Rng};
+use regex::Regex;
+use std::env;
+use std::fs;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::{fs,env};
 
 static ORDERED_NUMBER: AtomicUsize = AtomicUsize::new(1);
 
@@ -27,17 +31,19 @@ pub async fn get_other_pod_ips() -> Result<Vec<String>> {
         return Ok(Vec::new());
     }
 
-    let client = Client::try_default().await.map_err(|e| {
-        eprintln!("Failed to create Kubernetes client: {}", e);
-        e
-    })?;
+    let client = match Client::try_default().await {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("Failed to create Kubernetes client: {}", e);
+            return Ok(Vec::new()); // Return empty vector instead of error
+        }
+    };
 
-    // Get namespace and app label from environment variables
     let namespace = env::var("K8S_NAMESPACE").unwrap_or_else(|_| "default".to_string());
-    let app_label = env::var("APP_LABEL").unwrap_or_else(|_| "app=omock".to_string());
+    let app_label = env::var("APP_LABEL").unwrap_or_else(|_| "omock".to_string());
 
     let pods: Api<Pod> = Api::namespaced(client, &namespace);
-    let lp = ListParams::default().labels(&app_label);
+    let lp = ListParams::default().labels(&format!("app={}", app_label));
 
     let pod_list = pods.list(&lp).await.map_err(|e| {
         eprintln!("Failed to list pods: {}", e);
@@ -58,7 +64,7 @@ pub async fn get_other_pod_ips() -> Result<Vec<String>> {
 }
 
 /// Register custom Handlebars helpers
-pub fn register_helpers(handlebars: &mut Handlebars) {
+pub fn register_helpers(handlebars: &mut Handlebars<'_>) {
     handlebars.register_helper("current_datetime", Box::new(current_datetime));
     handlebars.register_helper("random_number", Box::new(random_number));
     handlebars.register_helper("ordered_number", Box::new(ordered_number));
@@ -66,44 +72,76 @@ pub fn register_helpers(handlebars: &mut Handlebars) {
 }
 
 /// Helper for current date-time with custom format
-fn current_datetime(helper: &Helper, _: &Handlebars, _: &Context, _: &mut RenderContext, out: &mut dyn Output) -> HelperResult {
-    let format = helper.param(0).and_then(|v| v.value().as_str()).unwrap_or("%Y-%m-%d %H:%M:%S");
+fn current_datetime(
+    helper: &Helper<'_, '_>,
+    _: &Handlebars<'_>,
+    _: &Context,
+    _: &mut RenderContext<'_, '_>,
+    out: &mut dyn Output,
+) -> HelperResult {
+    let format = helper
+        .param(0)
+        .and_then(|v| v.value().as_str())
+        .unwrap_or("%Y-%m-%d %H:%M:%S");
     let current_time = Utc::now().format(format).to_string();
     out.write(&current_time)?;
     Ok(())
 }
 
 /// Helper to generate a random number within a range
-fn random_number(helper: &Helper, _: &Handlebars, _: &Context, _: &mut RenderContext, out: &mut dyn Output) -> HelperResult {
-    let min = helper.param(0).and_then(|v| v.value().as_u64()).unwrap_or(0);
-    let max = helper.param(1).and_then(|v| v.value().as_u64()).unwrap_or(100);
+fn random_number(
+    helper: &Helper<'_, '_>,
+    _: &Handlebars<'_>,
+    _: &Context,
+    _: &mut RenderContext<'_, '_>,
+    out: &mut dyn Output,
+) -> HelperResult {
+    let min = helper
+        .param(0)
+        .and_then(|v| v.value().as_u64())
+        .unwrap_or(0);
+    let max = helper
+        .param(1)
+        .and_then(|v| v.value().as_u64())
+        .unwrap_or(100);
     let number = rand::thread_rng().gen_range(min..=max);
     out.write(&number.to_string())?;
     Ok(())
 }
 
 /// Helper for generating ordered numbers incrementally
-fn ordered_number(_: &Helper, _: &Handlebars, _: &Context, _: &mut RenderContext, out: &mut dyn Output) -> HelperResult {
+fn ordered_number(
+    _: &Helper<'_, '_>,
+    _: &Handlebars<'_>,
+    _: &Context,
+    _: &mut RenderContext<'_, '_>,
+    out: &mut dyn Output,
+) -> HelperResult {
     let number = ORDERED_NUMBER.fetch_add(1, Ordering::SeqCst);
     out.write(&number.to_string())?;
     Ok(())
 }
 
 /// Helper for generating random strings based on a regular expression
-fn random_string(helper: &Helper, _: &Handlebars, _: &Context, _: &mut RenderContext, out: &mut dyn Output) -> HelperResult {
-    let pattern = helper.param(0).and_then(|v| v.value().as_str()).unwrap_or("[a-zA-Z0-9]{10}");
+fn random_string(
+    helper: &Helper<'_, '_>,
+    _: &Handlebars<'_>,
+    _: &Context,
+    _: &mut RenderContext<'_, '_>,
+    out: &mut dyn Output,
+) -> HelperResult {
+    let pattern = helper
+        .param(0)
+        .and_then(|v| v.value().as_str())
+        .unwrap_or("[a-zA-Z0-9]{10}");
     let regex = Regex::new(pattern).unwrap_or_else(|_| Regex::new("[a-zA-Z0-9]{10}").unwrap());
 
     // Generate a random string that matches the regex pattern
-    let random_string: String = (0..10)
-        .map(|_| {
-            let char = rand::thread_rng().sample(Alphanumeric) as char;
-            if regex.is_match(&char.to_string()) {
-                char
-            } else {
-                'a' // default fallback character
-            }
-        })
+    let random_string: String = rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .filter(|c| regex.is_match(&(*c as char).to_string()))
+        .take(10)
+        .map(|c| c as char)
         .collect();
 
     out.write(&random_string)?;

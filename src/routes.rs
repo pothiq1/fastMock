@@ -6,9 +6,7 @@
 use crate::models::MockAPI;
 use crate::state::AppState;
 use crate::utils::get_other_pod_ips;
-use actix_web::{
-    delete, get, post, put, web, HttpRequest, HttpResponse, Responder,
-};
+use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse, Responder};
 use reqwest::Client;
 use serde_json::Value;
 use tokio::spawn;
@@ -76,10 +74,7 @@ async fn update_mock(
 
 /// Endpoint to retrieve a single mock by ID
 #[get("/get-mock/{id}")]
-async fn get_mock(
-    path: web::Path<Uuid>,
-    state: web::Data<AppState>,
-) -> impl Responder {
+async fn get_mock(path: web::Path<Uuid>, state: web::Data<AppState>) -> impl Responder {
     let id = path.into_inner();
 
     if let Some(mock_entry) = state.mocks.get(&id) {
@@ -91,10 +86,7 @@ async fn get_mock(
 
 /// Endpoint to save a new mock
 #[post("/save-mock")]
-async fn save_mock(
-    data: web::Json<MockAPI>,
-    state: web::Data<AppState>,
-) -> impl Responder {
+async fn save_mock(data: web::Json<MockAPI>, state: web::Data<AppState>) -> impl Responder {
     let mut mock = data.into_inner();
     let mock_id = Uuid::new_v4();
     mock.id = Some(mock_id);
@@ -103,9 +95,7 @@ async fn save_mock(
     state.mocks.insert(mock_id, mock.clone());
 
     // Map api_name to ID
-    state
-        .api_name_to_id
-        .insert(mock.api_name.clone(), mock_id);
+    state.api_name_to_id.insert(mock.api_name.clone(), mock_id);
 
     // Synchronize with other pods
     let other_pod_ips = match get_other_pod_ips().await {
@@ -150,10 +140,7 @@ async fn list_mocks(state: web::Data<AppState>) -> impl Responder {
 
 /// Endpoint to delete a mock by ID
 #[delete("/delete-mock/{id}")]
-async fn delete_mock(
-    path: web::Path<Uuid>,
-    state: web::Data<AppState>,
-) -> impl Responder {
+async fn delete_mock(path: web::Path<Uuid>, state: web::Data<AppState>) -> impl Responder {
     let id = path.into_inner();
 
     // Perform local mutation
@@ -289,7 +276,11 @@ pub async fn handle_mock(
 
                 // Extract request body
                 if let Some(content_type) = req.headers().get("Content-Type") {
-                    if content_type.to_str().unwrap_or("").contains("application/json") {
+                    if content_type
+                        .to_str()
+                        .unwrap_or("")
+                        .contains("application/json")
+                    {
                         if !body.is_empty() {
                             // Read and parse the request body
                             let json_body: Value = match serde_json::from_slice(&body) {
