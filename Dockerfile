@@ -20,7 +20,7 @@ COPY Cargo.toml Cargo.lock ./
 RUN mkdir src && echo "fn main() {}" > src/main.rs
 
 # Build dependencies
-RUN cargo build --release
+RUN cargo build --release && rm -rf target/release/build
 
 # Remove the dummy src directory and copy the actual source code
 RUN rm -rf src
@@ -30,7 +30,10 @@ COPY src ./src
 COPY static ./static
 
 # Build the application in release mode
-RUN cargo build --release
+RUN cargo build --release && \
+    strip target/release/OMock && \
+    rm -rf target/release/{build,deps,examples,incremental} && \
+    rm -rf /usr/local/cargo/registry /usr/local/cargo/git
 
 # Stage 2: Create the runtime image using Debian slim for minimal size
 FROM debian:buster-slim

@@ -9,18 +9,17 @@ use handlebars::Handlebars;
 use log::{error, info};
 use reqwest::Client;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tokio::time::{sleep, Duration};
 use uuid::Uuid;
 
 use crate::models::MockAPI;
 
 /// Application state
-#[derive(Debug)] // Removed Clone
 pub struct AppState {
     pub mocks: DashMap<Uuid, MockAPI>,
     pub api_name_to_id: DashMap<String, Uuid>,
-    pub handlebars: Arc<Handlebars<'static>>,
+    pub handlebars: Arc<Mutex<Handlebars<'static>>>, // Changed to Arc<Mutex<Handlebars>>
     pub peer_pods: DashMap<String, ()>,
     pub synced_peers: AtomicUsize, // Counter for synchronized peers
 }
@@ -46,12 +45,32 @@ impl AppState {
                                             self.api_name_to_id
                                                 .insert(peer_mock.api_name.clone(), id);
                                             info!("Updated mock {} from peer {}", id, peer_ip);
+
+                                            // Register the template
+                                            let template_name = id.to_string();
+                                            let mut handlebars = self.handlebars.lock().unwrap();
+                                            if let Err(e) = handlebars.register_template_string(
+                                                &template_name,
+                                                &peer_mock.response,
+                                            ) {
+                                                error!("Error compiling template: {}", e);
+                                            }
                                         }
                                     } else {
                                         // Insert new mock
                                         self.mocks.insert(id, peer_mock.clone());
                                         self.api_name_to_id.insert(peer_mock.api_name.clone(), id);
                                         info!("Added new mock {} from peer {}", id, peer_ip);
+
+                                        // Register the template
+                                        let template_name = id.to_string();
+                                        let mut handlebars = self.handlebars.lock().unwrap();
+                                        if let Err(e) = handlebars.register_template_string(
+                                            &template_name,
+                                            &peer_mock.response,
+                                        ) {
+                                            error!("Error compiling template: {}", e);
+                                        }
                                     }
                                 }
                             }

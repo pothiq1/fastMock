@@ -9,21 +9,22 @@ mod state;
 mod utils;
 
 use crate::routes::{
-    delete_all_mocks, delete_all_mocks_internal, delete_mock, get_mock, handle_mock, health_check,
-    list_mocks, readiness_check, save_mock, save_mock_internal, update_mock, update_mock_internal,
+    delete_all_mocks, delete_all_mocks_internal, delete_mock, delete_mock_internal, get_mock,
+    handle_mock, health_check, list_mocks, readiness_check, save_mock, save_mock_internal,
+    update_mock, update_mock_internal,
 };
 use crate::state::AppState;
-use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
+use actix_web::{middleware::Compress, web, App, HttpRequest, HttpResponse, HttpServer};
 use dashmap::DashMap;
 use env_logger::Env;
 use handlebars::Handlebars;
 use log::{error, info};
-use routes::delete_mock_internal;
 use rust_embed::RustEmbed;
 use std::io::Write;
 use std::panic;
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
+use std::sync::Mutex;
 use tokio::time::{interval, sleep, Duration};
 use utils::get_other_pod_ips;
 
@@ -42,8 +43,7 @@ async fn index() -> HttpResponse {
 
 async fn static_files(req: HttpRequest) -> HttpResponse {
     let filename: &str = req.match_info().query("filename");
-    let file_path = format!("static/{}", filename); // Ensure this matches your directory structure
-    match StaticFiles::get(&file_path) {
+    match StaticFiles::get(filename) {
         Some(content) => {
             let content_type = match filename.split('.').last() {
                 Some("css") => "text/css",
@@ -119,9 +119,9 @@ async fn run_server() -> std::io::Result<()> {
     let app_data = Arc::new(AppState {
         mocks: DashMap::new(),
         api_name_to_id: DashMap::new(),
-        handlebars: Arc::new(handlebars),
+        handlebars: Arc::new(Mutex::new(handlebars)), // Changed to Arc<Mutex<Handlebars>>
         peer_pods: DashMap::new(),
-        synced_peers: AtomicUsize::new(0), // Initialize synced_peers
+        synced_peers: AtomicUsize::new(0),
     });
 
     // Start the peer discovery and synchronization in the background
@@ -136,6 +136,7 @@ async fn run_server() -> std::io::Result<()> {
         let app_data = app_data.clone();
         move || {
             App::new()
+                .wrap(Compress::default()) // Enable gzip compression
                 .app_data(web::Data::from(app_data.clone()))
                 .service(save_mock)
                 .service(list_mocks)
@@ -147,9 +148,9 @@ async fn run_server() -> std::io::Result<()> {
                 .service(delete_mock_internal)
                 .service(delete_all_mocks)
                 .service(delete_all_mocks_internal)
-                .service(health_check) // Register /health
-                .service(readiness_check) // Register /ready
-                .service(handle_mock) // Register dynamic mock handler
+                .service(health_check)
+                .service(readiness_check)
+                .service(handle_mock) // Register the handler with attribute macro
                 .route("/", web::get().to(index))
                 .route("/static/{filename:.*}", web::get().to(static_files))
         }

@@ -7,10 +7,13 @@ use crate::models::MockAPI;
 use crate::state::AppState;
 use crate::utils::get_other_pod_ips;
 use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse, Responder};
+use actix_web_codegen::route; // Import the route attribute macro from actix_web_codegen
 use log::{error, info};
 use reqwest::Client;
 use serde_json::Value;
 use std::sync::atomic::Ordering;
+use std::sync::Arc;
+use std::sync::Mutex;
 use tokio::spawn;
 use uuid::Uuid;
 
@@ -43,6 +46,17 @@ pub async fn update_mock(
         mock_entry.delay = updated_mock.delay;
         mock_entry.method = updated_mock.method.clone();
         mock_entry.timestamp = updated_mock.timestamp; // Update timestamp
+
+        // Register the template
+        let template_name = mock_id.to_string();
+        let mut handlebars = state.handlebars.lock().unwrap();
+        match handlebars.register_template_string(&template_name, &updated_mock.response) {
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!("Error compiling template: {}", e);
+                return HttpResponse::InternalServerError().json("Error compiling template");
+            }
+        }
     } else {
         return HttpResponse::NotFound().json("Mock not found");
     }
@@ -94,6 +108,17 @@ pub async fn save_mock(data: web::Json<MockAPI>, state: web::Data<AppState>) -> 
     let mock_id = Uuid::new_v4();
     mock.id = Some(mock_id);
 
+    // Register the template
+    let template_name = mock_id.to_string();
+    let mut handlebars = state.handlebars.lock().unwrap();
+    match handlebars.register_template_string(&template_name, &mock.response) {
+        Ok(_) => {}
+        Err(e) => {
+            eprintln!("Error compiling template: {}", e);
+            return HttpResponse::InternalServerError().json("Error compiling template");
+        }
+    }
+
     // Insert into mocks
     state.mocks.insert(mock_id, mock.clone());
 
@@ -119,7 +144,7 @@ pub async fn save_mock(data: web::Json<MockAPI>, state: web::Data<AppState>) -> 
         spawn(async move {
             let _ = client_clone
                 .post(&url)
-                .header("X-Internal-Token", "S8d6xG1dA3fN7K9mA2jH4R6kB8vL0T5w") // Add the token header
+                .header("X-Internal-Token", "S8d6xG1dA3fN7K9mA2jH4R6kB8vL0T5w")
                 .json(&mock_clone)
                 .send()
                 .await;
@@ -150,6 +175,11 @@ pub async fn delete_mock(path: web::Path<Uuid>, state: web::Data<AppState>) -> i
     if let Some((_, mock)) = state.mocks.remove(&id) {
         // Remove from api_name_to_id mapping
         state.api_name_to_id.remove(&mock.api_name);
+
+        // Unregister the template
+        let template_name = id.to_string();
+        let mut handlebars = state.handlebars.lock().unwrap();
+        handlebars.unregister_template(&template_name);
     } else {
         return HttpResponse::NotFound().json("Mock not found");
     }
@@ -181,6 +211,37 @@ pub async fn delete_mock(path: web::Path<Uuid>, state: web::Data<AppState>) -> i
     HttpResponse::Ok().json("Mock deleted successfully")
 }
 
+/// Internal endpoint to delete all mocks (used for synchronization)
+#[delete("/delete-all-mocks-internal")]
+pub async fn delete_all_mocks_internal(
+    req: HttpRequest,
+    state: web::Data<AppState>,
+) -> impl Responder {
+    // Validate a custom header for authentication
+    if req
+        .headers()
+        .get("X-Internal-Token")
+        .and_then(|h| h.to_str().ok())
+        != Some("S8d6xG1dA3fN7K9mA2jH4R6kB8vL0T5w")
+    {
+        return HttpResponse::Unauthorized().json("Unauthorized");
+    }
+
+    info!("Received internal request to delete all mocks");
+
+    // Perform local mutation
+    state.mocks.clear();
+    state.api_name_to_id.clear();
+
+    // Clear all registered templates
+    let mut handlebars = state.handlebars.lock().unwrap();
+    handlebars.clear_templates();
+
+    info!("Internal mocks, API mappings, and templates cleared");
+
+    HttpResponse::Ok().json("All mocks deleted internally")
+}
+
 /// Endpoint to delete all mocks with synchronization
 #[delete("/delete-all-mocks")]
 pub async fn delete_all_mocks(state: web::Data<AppState>) -> impl Responder {
@@ -189,7 +250,12 @@ pub async fn delete_all_mocks(state: web::Data<AppState>) -> impl Responder {
     // Perform local mutation
     state.mocks.clear();
     state.api_name_to_id.clear();
-    info!("Local mocks and API mappings cleared");
+
+    // Clear all registered templates
+    let mut handlebars = state.handlebars.lock().unwrap();
+    handlebars.clear_templates();
+
+    info!("Local mocks, API mappings, and templates cleared");
 
     // Synchronize with other pods
     let other_pod_ips = match get_other_pod_ips().await {
@@ -209,7 +275,7 @@ pub async fn delete_all_mocks(state: web::Data<AppState>) -> impl Responder {
         spawn(async move {
             match client_clone
                 .delete(&url)
-                .header("X-Internal-Token", "S8d6xG1dA3fN7K9mA2jH4R6kB8vL0T5w") // Add the token header
+                .header("X-Internal-Token", "S8d6xG1dA3fN7K9mA2jH4R6kB8vL0T5w")
                 .send()
                 .await
             {
@@ -232,32 +298,6 @@ pub async fn delete_all_mocks(state: web::Data<AppState>) -> impl Responder {
     }
 
     HttpResponse::Ok().json("All mocks deleted successfully")
-}
-
-/// Internal endpoint to delete all mocks (used for synchronization)
-#[delete("/delete-all-mocks-internal")]
-pub async fn delete_all_mocks_internal(
-    req: HttpRequest,
-    state: web::Data<AppState>,
-) -> impl Responder {
-    // Validate a custom header for authentication
-    if req
-        .headers()
-        .get("X-Internal-Token")
-        .and_then(|h| h.to_str().ok())
-        != Some("S8d6xG1dA3fN7K9mA2jH4R6kB8vL0T5w")
-    {
-        return HttpResponse::Unauthorized().json("Unauthorized");
-    }
-
-    info!("Received internal request to delete all mocks");
-
-    // Perform local mutation
-    state.mocks.clear();
-    state.api_name_to_id.clear();
-    info!("Internal mocks and API mappings cleared");
-
-    HttpResponse::Ok().json("All mocks deleted internally")
 }
 
 /// Health check endpoint
@@ -301,6 +341,17 @@ pub async fn save_mock_internal(
     let mock_id = mock.id.unwrap_or_else(Uuid::new_v4);
     mock.id = Some(mock_id);
 
+    // Register the template
+    let template_name = mock_id.to_string();
+    let mut handlebars = state.handlebars.lock().unwrap();
+    match handlebars.register_template_string(&template_name, &mock.response) {
+        Ok(_) => {}
+        Err(e) => {
+            eprintln!("Error compiling template: {}", e);
+            return HttpResponse::InternalServerError().json("Error compiling template");
+        }
+    }
+
     // Insert into mocks
     state.mocks.insert(mock_id, mock.clone());
 
@@ -339,6 +390,18 @@ pub async fn update_mock_internal(
             state
                 .api_name_to_id
                 .insert(updated_mock.api_name.clone(), mock_id);
+
+            // Register the template
+            let template_name = mock_id.to_string();
+            let mut handlebars = state.handlebars.lock().unwrap();
+            match handlebars.register_template_string(&template_name, &updated_mock.response) {
+                Ok(_) => {}
+                Err(e) => {
+                    eprintln!("Error compiling template: {}", e);
+                    return HttpResponse::InternalServerError().json("Error compiling template");
+                }
+            }
+
             HttpResponse::Ok().json("Mock updated internally")
         } else {
             HttpResponse::Ok().json("Local mock is newer or equal; no update performed")
@@ -349,6 +412,18 @@ pub async fn update_mock_internal(
         state
             .api_name_to_id
             .insert(updated_mock.api_name.clone(), mock_id);
+
+        // Register the template
+        let template_name = mock_id.to_string();
+        let mut handlebars = state.handlebars.lock().unwrap();
+        match handlebars.register_template_string(&template_name, &updated_mock.response) {
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!("Error compiling template: {}", e);
+                return HttpResponse::InternalServerError().json("Error compiling template");
+            }
+        }
+
         HttpResponse::Ok().json("Mock inserted internally")
     }
 }
@@ -376,6 +451,11 @@ pub async fn delete_mock_internal(
         // Remove from api_name_to_id mapping
         state.api_name_to_id.remove(&mock.api_name);
 
+        // Unregister the template
+        let template_name = id.to_string();
+        let mut handlebars = state.handlebars.lock().unwrap();
+        handlebars.unregister_template(&template_name);
+
         HttpResponse::Ok().json("Mock deleted internally")
     } else {
         HttpResponse::NotFound().json("Mock not found")
@@ -383,7 +463,13 @@ pub async fn delete_mock_internal(
 }
 
 /// Handle mock requests based on api_name with dynamic methods and placeholders
-#[get("/mock/{api_name}")] // Added macro for clarity
+#[route(
+    "/mock/{api_name}",
+    method = "GET",
+    method = "POST",
+    method = "PUT",
+    method = "DELETE"
+)]
 pub async fn handle_mock(
     path: web::Path<String>,
     req: HttpRequest,
@@ -398,7 +484,6 @@ pub async fn handle_mock(
             let mock = mock.clone();
 
             if req.method().as_str().eq_ignore_ascii_case(&mock.method) {
-                // Initialize data map
                 let mut data = serde_json::Map::new();
 
                 // Extract headers
@@ -418,15 +503,18 @@ pub async fn handle_mock(
                     data.insert(key, Value::String(value));
                 }
 
-                // Extract request body
-                if let Some(content_type) = req.headers().get("Content-Type") {
-                    if content_type
-                        .to_str()
-                        .unwrap_or("")
-                        .contains("application/json")
-                    {
-                        if !body.is_empty() {
-                            // Read and parse the request body
+                // Determine if the template uses variables from the body
+                let uses_body = mock.response.contains("{{") && mock.response.contains("}}");
+
+                // Parse request body only if necessary
+                if uses_body && !body.is_empty() {
+                    if let Some(content_type) = req.headers().get("Content-Type") {
+                        if content_type
+                            .to_str()
+                            .unwrap_or("")
+                            .contains("application/json")
+                        {
+                            // Parse the JSON body
                             let json_body: Value = match serde_json::from_slice(&body) {
                                 Ok(json) => json,
                                 Err(e) => {
@@ -438,16 +526,14 @@ pub async fn handle_mock(
                             if let Some(obj) = json_body.as_object() {
                                 data.extend(obj.clone());
                             }
-                        } else {
-                            // Body is empty; proceed without parsing
-                            // Optionally handle this scenario
                         }
                     }
                 }
 
-                // Render the response template using Handlebars
-                let handlebars = &state.handlebars;
-                let rendered = match handlebars.render_template(&mock.response, &data) {
+                // Render the response template using registered template
+                let template_name = mock_id.value().to_string();
+                let handlebars = state.handlebars.lock().unwrap();
+                let rendered = match handlebars.render(&template_name, &data) {
                     Ok(res) => res,
                     Err(e) => {
                         eprintln!("Template rendering error: {}", e);

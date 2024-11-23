@@ -16,5 +16,5 @@ pub struct MockAPI {
     pub status: u16,
     pub delay: u64,               // Delay in milliseconds
     pub method: String,           // HTTP method (e.g., GET, POST)
-    pub timestamp: DateTime<Utc>, // Add timestamp field
+    pub timestamp: DateTime<Utc>, // Timestamp field
 }

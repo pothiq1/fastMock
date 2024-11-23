@@ -1,8 +1,5 @@
 // src/utils.rs
 
-// Author: Md Hasan Basri
-// Email: pothiq@gmail.com
-
 use anyhow::Result;
 use chrono::Utc;
 use handlebars::{Context, Handlebars, Helper, HelperResult, Output, RenderContext};
@@ -10,7 +7,7 @@ use k8s_openapi::api::core::v1::Pod;
 use kube::{
     api::{Api, ListParams},
     Client,
-}; // Kubernetes client imports
+};
 use rand::{distributions::Alphanumeric, Rng};
 use regex::Regex;
 use std::env;
