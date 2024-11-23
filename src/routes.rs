@@ -1,20 +1,22 @@
+// src/routes.rs
+
 // Author: Md Hasan Basri
 // Email: pothiq@gmail.com
-
-// src/routes.rs
 
 use crate::models::MockAPI;
 use crate::state::AppState;
 use crate::utils::get_other_pod_ips;
 use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse, Responder};
+use log::{error, info};
 use reqwest::Client;
 use serde_json::Value;
+use std::sync::atomic::Ordering;
 use tokio::spawn;
 use uuid::Uuid;
 
 /// Endpoint to update an existing mock
 #[put("/update-mock/{id}")]
-async fn update_mock(
+pub async fn update_mock(
     path: web::Path<Uuid>,
     data: web::Json<MockAPI>,
     state: web::Data<AppState>,
@@ -40,6 +42,7 @@ async fn update_mock(
         mock_entry.status = updated_mock.status;
         mock_entry.delay = updated_mock.delay;
         mock_entry.method = updated_mock.method.clone();
+        mock_entry.timestamp = updated_mock.timestamp; // Update timestamp
     } else {
         return HttpResponse::NotFound().json("Mock not found");
     }
@@ -74,7 +77,7 @@ async fn update_mock(
 
 /// Endpoint to retrieve a single mock by ID
 #[get("/get-mock/{id}")]
-async fn get_mock(path: web::Path<Uuid>, state: web::Data<AppState>) -> impl Responder {
+pub async fn get_mock(path: web::Path<Uuid>, state: web::Data<AppState>) -> impl Responder {
     let id = path.into_inner();
 
     if let Some(mock_entry) = state.mocks.get(&id) {
@@ -86,7 +89,7 @@ async fn get_mock(path: web::Path<Uuid>, state: web::Data<AppState>) -> impl Res
 
 /// Endpoint to save a new mock
 #[post("/save-mock")]
-async fn save_mock(data: web::Json<MockAPI>, state: web::Data<AppState>) -> impl Responder {
+pub async fn save_mock(data: web::Json<MockAPI>, state: web::Data<AppState>) -> impl Responder {
     let mut mock = data.into_inner();
     let mock_id = Uuid::new_v4();
     mock.id = Some(mock_id);
@@ -128,7 +131,7 @@ async fn save_mock(data: web::Json<MockAPI>, state: web::Data<AppState>) -> impl
 
 /// Endpoint to list all mocks
 #[get("/list-mocks")]
-async fn list_mocks(state: web::Data<AppState>) -> impl Responder {
+pub async fn list_mocks(state: web::Data<AppState>) -> impl Responder {
     let mocks: Vec<MockAPI> = state
         .mocks
         .iter()
@@ -140,7 +143,7 @@ async fn list_mocks(state: web::Data<AppState>) -> impl Responder {
 
 /// Endpoint to delete a mock by ID
 #[delete("/delete-mock/{id}")]
-async fn delete_mock(path: web::Path<Uuid>, state: web::Data<AppState>) -> impl Responder {
+pub async fn delete_mock(path: web::Path<Uuid>, state: web::Data<AppState>) -> impl Responder {
     let id = path.into_inner();
 
     // Perform local mutation
@@ -178,9 +181,106 @@ async fn delete_mock(path: web::Path<Uuid>, state: web::Data<AppState>) -> impl 
     HttpResponse::Ok().json("Mock deleted successfully")
 }
 
+/// Endpoint to delete all mocks with synchronization
+#[delete("/delete-all-mocks")]
+pub async fn delete_all_mocks(state: web::Data<AppState>) -> impl Responder {
+    info!("Received request to delete all mocks");
+
+    // Perform local mutation
+    state.mocks.clear();
+    state.api_name_to_id.clear();
+    info!("Local mocks and API mappings cleared");
+
+    // Synchronize with other pods
+    let other_pod_ips = match get_other_pod_ips().await {
+        Ok(ips) => ips,
+        Err(e) => {
+            eprintln!("Failed to get other pod IPs: {}", e);
+            Vec::new()
+        }
+    };
+
+    let client = Client::new();
+
+    for ip in other_pod_ips {
+        let url = format!("http://{}:8080/delete-all-mocks-internal", ip);
+        let client_clone = client.clone();
+
+        spawn(async move {
+            match client_clone
+                .delete(&url)
+                .header("X-Internal-Token", "S8d6xG1dA3fN7K9mA2jH4R6kB8vL0T5w") // Add the token header
+                .send()
+                .await
+            {
+                Ok(response) => {
+                    if response.status().is_success() {
+                        info!("Successfully deleted mocks on peer {}", ip);
+                    } else {
+                        error!(
+                            "Failed to delete mocks on peer {}: Status {}",
+                            ip,
+                            response.status()
+                        );
+                    }
+                }
+                Err(e) => {
+                    error!("Error deleting mocks on peer {}: {}", ip, e);
+                }
+            }
+        });
+    }
+
+    HttpResponse::Ok().json("All mocks deleted successfully")
+}
+
+/// Internal endpoint to delete all mocks (used for synchronization)
+#[delete("/delete-all-mocks-internal")]
+pub async fn delete_all_mocks_internal(
+    req: HttpRequest,
+    state: web::Data<AppState>,
+) -> impl Responder {
+    // Validate a custom header for authentication
+    if req
+        .headers()
+        .get("X-Internal-Token")
+        .and_then(|h| h.to_str().ok())
+        != Some("S8d6xG1dA3fN7K9mA2jH4R6kB8vL0T5w")
+    {
+        return HttpResponse::Unauthorized().json("Unauthorized");
+    }
+
+    info!("Received internal request to delete all mocks");
+
+    // Perform local mutation
+    state.mocks.clear();
+    state.api_name_to_id.clear();
+    info!("Internal mocks and API mappings cleared");
+
+    HttpResponse::Ok().json("All mocks deleted internally")
+}
+
+/// Health check endpoint
+#[get("/health")]
+pub async fn health_check() -> impl Responder {
+    HttpResponse::Ok().json("OK")
+}
+
+/// Readiness check endpoint
+#[get("/ready")]
+pub async fn readiness_check(state: web::Data<AppState>) -> impl Responder {
+    // Check if synchronization with peers has occurred
+    if state.synced_peers.load(Ordering::SeqCst) == 0 {
+        return HttpResponse::ServiceUnavailable().json("Not synchronized with peers yet");
+    }
+
+    // All readiness checks passed
+    HttpResponse::Ok().json("Ready")
+}
+
 /// Internal endpoint to save a mock (used for synchronization)
 #[post("/save-mock-internal")]
-async fn save_mock_internal(
+pub async fn save_mock_internal(
     req: HttpRequest,
     data: web::Json<MockAPI>,
     state: web::Data<AppState>,
@@ -210,9 +310,52 @@ async fn save_mock_internal(
     HttpResponse::Ok().json("Mock saved internally")
 }
 
+/// Internal endpoint to update a mock (used for synchronization)
+#[put("/update-mock-internal/{id}")]
+pub async fn update_mock_internal(
+    req: HttpRequest,
+    path: web::Path<Uuid>,
+    data: web::Json<MockAPI>,
+    state: web::Data<AppState>,
+) -> impl Responder {
+    // Validate a custom header for authentication
+    if req
+        .headers()
+        .get("X-Internal-Token")
+        .and_then(|h| h.to_str().ok())
+        != Some("S8d6xG1dA3fN7K9mA2jH4R6kB8vL0T5w")
+    {
+        return HttpResponse::Unauthorized().json("Unauthorized");
+    }
+
+    let mock_id = path.into_inner();
+    let updated_mock = data.into_inner();
+
+    // Perform local mutation
+    if let Some(mut mock_entry) = state.mocks.get_mut(&mock_id) {
+        if updated_mock.timestamp > mock_entry.timestamp {
+            // Update the mock only if the incoming timestamp is newer
+            *mock_entry = updated_mock.clone();
+            state
+                .api_name_to_id
+                .insert(updated_mock.api_name.clone(), mock_id);
+            HttpResponse::Ok().json("Mock updated internally")
+        } else {
+            HttpResponse::Ok().json("Local mock is newer or equal; no update performed")
+        }
+    } else {
+        // Insert new mock
+        state.mocks.insert(mock_id, updated_mock.clone());
+        state
+            .api_name_to_id
+            .insert(updated_mock.api_name.clone(), mock_id);
+        HttpResponse::Ok().json("Mock inserted internally")
+    }
+}
+
 /// Internal endpoint to delete a mock by ID (used for synchronization)
 #[delete("/delete-mock-internal/{id}")]
-async fn delete_mock_internal(
+pub async fn delete_mock_internal(
     req: HttpRequest,
     path: web::Path<Uuid>,
     state: web::Data<AppState>,
@@ -240,6 +383,7 @@ async fn delete_mock_internal(
 }
 
 /// Handle mock requests based on api_name with dynamic methods and placeholders
+#[get("/mock/{api_name}")] // Added macro for clarity
 pub async fn handle_mock(
     path: web::Path<String>,
     req: HttpRequest,

@@ -41,6 +41,7 @@ pub async fn get_other_pod_ips() -> Result<Vec<String>> {
 
     let namespace = env::var("K8S_NAMESPACE").unwrap_or_else(|_| "default".to_string());
     let app_label = env::var("APP_LABEL").unwrap_or_else(|_| "omock".to_string());
+    let own_pod_ip = env::var("POD_IP").unwrap_or_else(|_| "".to_string());
 
     let pods: Api<Pod> = Api::namespaced(client, &namespace);
     let lp = ListParams::default().labels(&format!("app={}", app_label));
@@ -54,6 +55,7 @@ pub async fn get_other_pod_ips() -> Result<Vec<String>> {
         .items
         .into_iter()
         .filter_map(|pod| pod.status.and_then(|status| status.pod_ip))
+        .filter(|ip| ip != &own_pod_ip) // Exclude own pod IP
         .collect();
 
     if ips.is_empty() {

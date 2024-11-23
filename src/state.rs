@@ -1,50 +1,68 @@
+// src/state.rs
+
 // Author: Md Hasan Basri
 // Email: pothiq@gmail.com
 
-use crate::models::MockAPI;
-use anyhow::Error;
+use anyhow::Result;
 use dashmap::DashMap;
 use handlebars::Handlebars;
-use log::{error, info, warn};
+use log::{error, info};
 use reqwest::Client;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use uuid::Uuid;
 
-#[derive(Debug, Clone)]
+use crate::models::MockAPI;
+
+/// Application state
+#[derive(Debug)] // Removed Clone
 pub struct AppState {
     pub mocks: DashMap<Uuid, MockAPI>,
     pub api_name_to_id: DashMap<String, Uuid>,
-    // Remove this line:
-    // pub own_ip: String,
     pub handlebars: Arc<Handlebars<'static>>,
-    pub peer_pods: DashMap<String, ()>, // Add this field
+    pub peer_pods: DashMap<String, ()>,
+    pub synced_peers: AtomicUsize, // Counter for synchronized peers
 }
 
 impl AppState {
-    /// Sync data from another pod with retries
-    pub async fn sync_data_from_peer(&self, peer_ip: &str) -> Result<(), Error> {
+    /// Sync data from another pod with retries and timestamp comparison
+    pub async fn sync_data_from_peer(&self, peer_ip: &str) -> Result<()> {
         let client = Client::new();
-        let url = format!("http://{}/list-mocks", peer_ip);
+        let url = format!("http://{}:8080/list-mocks", peer_ip);
 
         for attempt in 1..=3 {
             match client.get(&url).send().await {
                 Ok(response) => {
                     if response.status().is_success() {
-                        if let Ok(mocks) = response.json::<Vec<MockAPI>>().await {
-                            for mock in mocks {
-                                if let Some(id) = mock.id {
-                                    self.mocks.insert(id, mock.clone());
-                                    self.api_name_to_id.insert(mock.api_name.clone(), id);
+                        if let Ok(peer_mocks) = response.json::<Vec<MockAPI>>().await {
+                            for peer_mock in peer_mocks {
+                                if let Some(id) = peer_mock.id {
+                                    if let Some(mut local_mock) = self.mocks.get_mut(&id) {
+                                        // Compare timestamps
+                                        if peer_mock.timestamp > local_mock.timestamp {
+                                            // Update local mock with peer's mock
+                                            *local_mock = peer_mock.clone();
+                                            self.api_name_to_id
+                                                .insert(peer_mock.api_name.clone(), id);
+                                            info!("Updated mock {} from peer {}", id, peer_ip);
+                                        }
+                                    } else {
+                                        // Insert new mock
+                                        self.mocks.insert(id, peer_mock.clone());
+                                        self.api_name_to_id.insert(peer_mock.api_name.clone(), id);
+                                        info!("Added new mock {} from peer {}", id, peer_ip);
+                                    }
                                 }
                             }
                             info!("Successfully synchronized mocks from {}", peer_ip);
+                            self.synced_peers.fetch_add(1, Ordering::SeqCst); // Increment synchronized peers
                             return Ok(());
                         } else {
                             error!("Failed to parse mocks from peer {}", peer_ip);
                         }
                     } else {
-                        warn!(
+                        error!(
                             "Attempt {}: Failed to fetch mocks from {}: Status {}",
                             attempt,
                             peer_ip,
@@ -59,7 +77,8 @@ impl AppState {
                     );
                 }
             }
-            sleep(Duration::from_secs(2)).await;
+            let backoff = Duration::from_secs(2_u64.pow(attempt));
+            sleep(backoff).await;
         }
         error!(
             "Failed to synchronize mocks from {} after multiple attempts",
