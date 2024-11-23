@@ -10,7 +10,7 @@ mod utils;
 
 use crate::routes::{
     delete_mock, delete_mock_internal, get_mock, handle_mock, list_mocks, save_mock,
-    save_mock_internal, update_mock,
+    save_mock_internal, update_mock, update_mock_internal,
 };
 use crate::state::AppState;
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
@@ -21,9 +21,11 @@ use log::{error, info};
 use rust_embed::RustEmbed;
 use std::io::Write;
 use std::panic;
-use std::sync::Arc;
-use tokio::time::{sleep, Duration};
+use std::sync::{Arc, Mutex};
 use utils::get_other_pod_ips;
+use uuid::Uuid;
+
+use once_cell::sync::Lazy;
 
 #[derive(RustEmbed)]
 #[folder = "static/"]
@@ -55,48 +57,31 @@ async fn static_files(req: HttpRequest) -> HttpResponse {
     }
 }
 
-async fn discover_and_sync_peers(app_data: Arc<AppState>) {
-    sleep(Duration::from_secs(2)).await;
-
-    let other_pod_ips = match get_other_pod_ips().await {
-        Ok(ips) => ips,
-        Err(e) => {
-            eprintln!("Failed to get other pod IPs: {}", e);
-            Vec::new()
-        }
-    };
-
-    for ip in other_pod_ips {
-        println!("Discovered peer pod at IP: {}", ip);
-        app_data.peer_pods.insert(ip.clone(), ());
-
-        // Call sync_data_from_peer here
-        let app_data_clone = app_data.clone();
-        let ip_clone = ip.clone();
-        tokio::spawn(async move {
-            if let Err(e) = app_data_clone.sync_data_from_peer(&ip_clone).await {
-                error!("Error syncing data from peer {}: {}", ip_clone, e);
-            }
-        });
-    }
-}
-
-async fn run_server() -> std::io::Result<()> {
-    // Remove the duplicate logger initialization
-    // env_logger::init_from_env(Env::default().default_filter_or("info"));
-
-    // Initialize Handlebars and register helpers
+// Initialize a global static instance of Handlebars wrapped in a Mutex
+static HANDLEBARS: Lazy<Mutex<Handlebars<'static>>> = Lazy::new(|| {
     let mut handlebars = Handlebars::new();
     utils::register_helpers(&mut handlebars);
+    Mutex::new(handlebars)
+});
 
-    let app_data = Arc::new(AppState {
-        mocks: DashMap::new(),
-        api_name_to_id: DashMap::new(),
-        handlebars: Arc::new(handlebars),
-        peer_pods: DashMap::new(),
-    });
+async fn sync_data_from_peers(app_data: Arc<AppState>) -> Result<(), String> {
+    let peer_pod_ips = get_other_pod_ips()
+        .await
+        .map_err(|e| format!("Failed to fetch pod IPs: {}", e))?;
+    if peer_pod_ips.is_empty() {
+        println!("No peers found. Starting as a fresh instance.");
+        return Ok(());
+    }
 
-    let server = HttpServer::new({
+    println!("Discovered peer pods: {:?}", peer_pod_ips);
+    app_data
+        .sync_data_from_peers(peer_pod_ips)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+async fn run_server(app_data: Arc<AppState>) -> std::io::Result<()> {
+    HttpServer::new({
         let app_data = app_data.clone();
         move || {
             App::new()
@@ -108,27 +93,18 @@ async fn run_server() -> std::io::Result<()> {
                 .service(get_mock)
                 .service(save_mock_internal)
                 .service(delete_mock_internal)
+                .service(update_mock_internal)
                 .route("/mock/{api_name}", web::route().to(handle_mock))
                 .route("/", web::get().to(index))
                 .route("/static/{filename:.*}", web::get().to(static_files))
-            // Remove the following line if using RustEmbed
-            // .service(fs::Files::new("/static", "./static").show_files_listing())
         }
     })
     .workers(num_cpus::get())
     .max_connections(20_000)
     .backlog(1024)
     .bind("0.0.0.0:8080")?
-    .run();
-
-    tokio::spawn({
-        let app_data = app_data.clone();
-        async move {
-            discover_and_sync_peers(app_data).await;
-        }
-    });
-
-    server.await
+    .run()
+    .await
 }
 
 #[actix_web::main]
@@ -142,7 +118,20 @@ async fn main() -> std::io::Result<()> {
     info!("Application is starting...");
     std::io::stdout().flush().unwrap();
 
-    if let Err(e) = run_server().await {
+    // Initialize AppState
+    let app_data = Arc::new(AppState {
+        mocks: DashMap::new(),
+        api_name_to_id: DashMap::new(),
+        peer_pods: DashMap::new(),
+    });
+
+    // Sync data from peer pods before starting the server
+    if let Err(e) = sync_data_from_peers(app_data.clone()).await {
+        error!("Error syncing data from peers: {}", e);
+    }
+
+    // Start the server
+    if let Err(e) = run_server(app_data).await {
         eprintln!("Application error: {:?}", e);
         std::process::exit(1);
     }

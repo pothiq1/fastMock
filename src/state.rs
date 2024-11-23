@@ -1,10 +1,11 @@
+// src/state.rs
+
 // Author: Md Hasan Basri
 // Email: pothiq@gmail.com
 
 use crate::models::MockAPI;
 use anyhow::Error;
 use dashmap::DashMap;
-use handlebars::Handlebars;
 use log::{error, info, warn};
 use reqwest::Client;
 use std::sync::Arc;
@@ -13,12 +14,9 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 pub struct AppState {
-    pub mocks: DashMap<Uuid, MockAPI>,
-    pub api_name_to_id: DashMap<String, Uuid>,
-    // Remove this line:
-    // pub own_ip: String,
-    pub handlebars: Arc<Handlebars<'static>>,
-    pub peer_pods: DashMap<String, ()>, // Add this field
+    pub mocks: DashMap<Uuid, MockAPI>,         // Stores all mocks
+    pub api_name_to_id: DashMap<String, Uuid>, // Maps API names to IDs
+    pub peer_pods: DashMap<String, ()>,        // Tracks discovered peer pods
 }
 
 impl AppState {
@@ -32,6 +30,11 @@ impl AppState {
                 Ok(response) => {
                     if response.status().is_success() {
                         if let Ok(mocks) = response.json::<Vec<MockAPI>>().await {
+                            if mocks.is_empty() {
+                                info!("Peer pod at {} has no data.", peer_ip);
+                                continue;
+                            }
+
                             for mock in mocks {
                                 if let Some(id) = mock.id {
                                     self.mocks.insert(id, mock.clone());
@@ -39,7 +42,7 @@ impl AppState {
                                 }
                             }
                             info!("Successfully synchronized mocks from {}", peer_ip);
-                            return Ok(());
+                            return Ok(()); // Exit on successful synchronization
                         } else {
                             error!("Failed to parse mocks from peer {}", peer_ip);
                         }
@@ -59,7 +62,7 @@ impl AppState {
                     );
                 }
             }
-            sleep(Duration::from_secs(2)).await;
+            sleep(Duration::from_secs(2)).await; // Retry after delay
         }
         error!(
             "Failed to synchronize mocks from {} after multiple attempts",
@@ -69,5 +72,22 @@ impl AppState {
             "Failed to synchronize mocks from {}",
             peer_ip
         ))
+    }
+
+    /// Sync data from multiple peers
+    pub async fn sync_data_from_peers(&self, peer_ips: Vec<String>) -> Result<(), Error> {
+        for peer_ip in peer_ips {
+            match self.sync_data_from_peer(&peer_ip).await {
+                Ok(_) => {
+                    info!("Successfully fetched data from {}", peer_ip);
+                    return Ok(()); // Stop if data is fetched successfully
+                }
+                Err(e) => {
+                    error!("Failed to fetch data from {}: {}", peer_ip, e);
+                }
+            }
+        }
+        info!("No data found from any peer pods.");
+        Ok(()) // Return Ok even if no data is found to allow the pod to start
     }
 }

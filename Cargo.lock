@@ -18,6 +18,7 @@ dependencies = [
  "kube",
  "log",
  "num_cpus",
+ "once_cell",
  "rand",
  "regex",
  "reqwest",

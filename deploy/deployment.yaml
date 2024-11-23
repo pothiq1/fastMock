@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: omock
-          image: pothiq/fastmock:latest
+          image: pothiq/fastmock:1.0.1
           ports:
             - containerPort: 8080
           env:

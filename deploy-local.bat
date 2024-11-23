@@ -2,7 +2,7 @@
 
 REM Variables
 set IMAGE_NAME=pothiq/fastmock
-set IMAGE_TAG=latest
+set IMAGE_TAG=1.0.1
 
 REM Update Cargo.lock
 echo Updating Cargo.lock...
