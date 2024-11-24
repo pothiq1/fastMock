@@ -8,6 +8,14 @@ mod routes;
 mod state;
 mod utils;
 
+// Conditionally include the metrics module
+#[cfg(feature = "metrics")]
+mod metrics;
+
+// Conditionally import metrics_handler and MetricsMiddleware
+#[cfg(feature = "metrics")]
+use crate::metrics::{metrics_handler, MetricsMiddleware};
+
 use crate::routes::{
     delete_all_mocks, delete_all_mocks_internal, delete_mock, delete_mock_internal, get_mock,
     handle_mock, health_check, list_mocks, readiness_check, save_mock, save_mock_internal,
@@ -20,13 +28,16 @@ use env_logger::Env;
 use handlebars::Handlebars;
 use log::{error, info};
 use rust_embed::RustEmbed;
+use std::env;
 use std::io::Write;
 use std::panic;
 use std::sync::atomic::AtomicUsize;
-use std::sync::Arc;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tokio::time::{interval, sleep, Duration};
 use utils::get_other_pod_ips;
+
+#[cfg(all(feature = "metrics", target_os = "linux"))]
+use prometheus::process_collector::ProcessCollector;
 
 #[derive(RustEmbed)]
 #[folder = "static/"]
@@ -116,11 +127,22 @@ async fn run_server() -> std::io::Result<()> {
     let mut handlebars = Handlebars::new();
     utils::register_helpers(&mut handlebars);
 
+    // Read environment variables for metrics
+    let metrics_enabled = env::var("METRICS_ENABLED")
+        .unwrap_or_else(|_| "false".to_string())
+        .parse::<bool>()
+        .unwrap_or(false);
+
+    #[cfg(feature = "metrics")]
+    let metrics_port = env::var("METRICS_PORT")
+        .unwrap_or_else(|_| "9090".to_string())
+        .parse::<u16>()
+        .unwrap_or(9090);
+
     let app_data = Arc::new(AppState {
         mocks: DashMap::new(),
         api_name_to_id: DashMap::new(),
-        handlebars: Arc::new(Mutex::new(handlebars)), // Changed to Arc<Mutex<Handlebars>>
-        peer_pods: DashMap::new(),
+        handlebars: Arc::new(Mutex::new(handlebars)),
         synced_peers: AtomicUsize::new(0),
     });
 
@@ -132,27 +154,51 @@ async fn run_server() -> std::io::Result<()> {
         });
     }
 
-    let server = HttpServer::new({
-        let app_data = app_data.clone();
-        move || {
-            App::new()
-                .wrap(Compress::default()) // Enable gzip compression
-                .app_data(web::Data::from(app_data.clone()))
-                .service(save_mock)
-                .service(list_mocks)
-                .service(delete_mock)
-                .service(update_mock)
-                .service(get_mock)
-                .service(save_mock_internal)
-                .service(update_mock_internal)
-                .service(delete_mock_internal)
-                .service(delete_all_mocks)
-                .service(delete_all_mocks_internal)
-                .service(health_check)
-                .service(readiness_check)
-                .service(handle_mock) // Register the handler with attribute macro
-                .route("/", web::get().to(index))
-                .route("/static/{filename:.*}", web::get().to(static_files))
+    // Register process metrics collector if metrics are enabled
+    #[cfg(all(feature = "metrics", target_os = "linux"))]
+    {
+        if metrics_enabled {
+            prometheus::default_registry()
+                .register(Box::new(ProcessCollector::for_self()))
+                .unwrap();
+        }
+    }
+
+    // Initialize the HttpServer with conditional middleware wrapping
+    let server = HttpServer::new(move || {
+        let app = App::new()
+            .wrap(Compress::default()) // Enable gzip compression
+            .app_data(web::Data::from(app_data.clone()))
+            .service(save_mock)
+            .service(list_mocks)
+            .service(delete_mock)
+            .service(update_mock)
+            .service(get_mock)
+            .service(save_mock_internal)
+            .service(update_mock_internal)
+            .service(delete_mock_internal)
+            .service(delete_all_mocks)
+            .service(delete_all_mocks_internal)
+            .service(health_check)
+            .service(readiness_check)
+            .service(handle_mock) // Register the handler with attribute macro
+            .route("/", web::get().to(index))
+            .route("/static/{filename:.*}", web::get().to(static_files));
+
+        // Conditionally apply MetricsMiddleware
+        #[cfg(feature = "metrics")]
+        {
+            if metrics_enabled {
+                app.wrap(MetricsMiddleware)
+            } else {
+                app
+            }
+        }
+
+        #[cfg(not(feature = "metrics"))]
+        {
+            // No middleware wrapping when metrics are disabled
+            app
         }
     })
     .workers(num_cpus::get())
@@ -160,6 +206,25 @@ async fn run_server() -> std::io::Result<()> {
     .backlog(1024)
     .bind("0.0.0.0:8080")?
     .run();
+
+    // Start metrics server if enabled
+    #[cfg(feature = "metrics")]
+    {
+        if metrics_enabled {
+            let metrics_server = HttpServer::new(move || {
+                App::new().route("/metrics", web::get().to(metrics_handler))
+            })
+            .bind(("0.0.0.0", metrics_port))?
+            .run();
+
+            // Start the metrics server in a separate task
+            tokio::spawn(async move {
+                if let Err(e) = metrics_server.await {
+                    eprintln!("Metrics server error: {}", e);
+                }
+            });
+        }
+    }
 
     server.await
 }

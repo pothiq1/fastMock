@@ -20,8 +20,7 @@ pub struct AppState {
     pub mocks: DashMap<Uuid, MockAPI>,
     pub api_name_to_id: DashMap<String, Uuid>,
     pub handlebars: Arc<Mutex<Handlebars<'static>>>, // Changed to Arc<Mutex<Handlebars>>
-    pub peer_pods: DashMap<String, ()>,
-    pub synced_peers: AtomicUsize, // Counter for synchronized peers
+    pub synced_peers: AtomicUsize,                   // Counter for synchronized peers
 }
 
 impl AppState {

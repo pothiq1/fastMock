@@ -2,7 +2,7 @@
 
 REM Variables
 set IMAGE_NAME=pothiq/fastmock
-set IMAGE_TAG=1.0.3
+set IMAGE_TAG=latest
 set DEPLOYMENT_YAML=deploy\deployment.yaml
 set HEADLESS_SERVICE_YAML=deploy\headless-service.yaml
 set SERVICE_YAML=deploy\service.yaml

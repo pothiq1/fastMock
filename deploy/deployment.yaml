@@ -16,9 +16,10 @@ spec:
     spec:
       containers:
         - name: omock
-          image: pothiq/fastmock:1.0.3
+          image: pothiq/fastmock:latest
           ports:
             - containerPort: 8080
+              name: http
           env:
             - name: POD_IP
               valueFrom:
@@ -30,6 +31,26 @@ spec:
                   fieldPath: metadata.namespace
             - name: APP_LABEL
               value: "omock"
+            # Metrics are disabled by default
+            - name: METRICS_ENABLED
+              value: "false"
+            # Uncomment the following lines to enable metrics
+            # - name: METRICS_ENABLED
+            #   value: "true"
+            # - name: METRICS_PORT
+            #   value: "9090"
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
           resources:
             limits:
               memory: "512Mi"

@@ -20,6 +20,17 @@
         h1,
         h2 {
             color: #343a40;
+            /* Added for animation */
+            opacity: 0;
+            transform: translateY(-20px);
+            animation: fadeInUp 1s forwards;
+        }
+
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .btn-primary {
@@ -191,6 +202,8 @@
             .floating-menu {
                 top: 10px;
                 right: 10px;
+                transform-origin: center;
+                transition: transform 0.3s ease, box-shadow 0.3s ease;
             }
         }
 
@@ -202,8 +215,7 @@
             margin-bottom: 20px;
             /* Ensure consistent spacing */
             background-color: #ffffff;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            /* Added shadow */
+            /* box-shadow removed for cleaner look */
             transition: box-shadow 0.3s ease;
         }
 
@@ -235,7 +247,6 @@
             display: none;
             /* Ensures no space is occupied */
         }
-
 
         .collapsible-panel.expanded .collapsible-panel-header {
             border-bottom: none;
@@ -273,9 +284,8 @@
         }
 
         .text-action {
-            cursor: pointer;
-            color: #007bff;
-            text-decoration: underline;
+            /* Changed from span to button for consistency */
+            /* Removed for buttons */
         }
 
         .text-action:hover {
@@ -288,8 +298,9 @@
             top: 20px;
             right: 20px;
             z-index: 1000;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            /* Added shadow */
+            /* box-shadow removed to eliminate shadow under the circle menu */
+            /* box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); */
+            transition: transform 0.3s ease;
         }
 
         .floating-menu .fab {
@@ -302,7 +313,8 @@
             align-items: center;
             color: #fff;
             cursor: pointer;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            /* box-shadow removed for cleaner look */
+            /* box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); */
             transition: transform 0.3s ease, background-color 0.3s ease;
             font-size: 24px;
             /* Increased font size for visibility */
@@ -340,6 +352,13 @@
             transform: translateY(0);
         }
 
+        .floating-menu.open {
+            transform: scale(1.05);
+            /* Slightly enlarge on open for a smoother feel */
+            /* box-shadow removed to eliminate shadow under the circle menu */
+            /* box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2); */
+        }
+
         .floating-menu .action-buttons button:last-child {
             margin-bottom: 0;
         }
@@ -372,6 +391,17 @@
             font-size: 0.85em;
             color: #6c757d;
             margin-top: 5px;
+        }
+
+        /* Button styles for format and toggle */
+        .btn-json-action {
+            margin-right: 10px;
+            /* Adjusted top margin to 5px */
+            margin-top: 5px;
+        }
+
+        .btn-json-action:last-child {
+            margin-right: 0;
         }
     </style>
     <!-- jQuery -->
@@ -418,12 +448,15 @@
                     <div class="d-flex justify-content-between align-items-center mt-1">
                         <small id="response-info" class="form-text text-muted">Characters: 0 | Size: 0 KB</small>
                         <div>
-                            <span id="formatJsonBtn" class="text-action mr-3" title="Format JSON">Format JSON</span>
-                            <span id="expandAllBtn" class="text-action mr-3" title="Expand All"
-                                style="display: none;">Expand All</span>
-                            <span id="squeezeAllBtn" class="text-action mr-3" title="Squeeze All"
-                                style="display: none;">Squeeze All</span>
-                            <span id="toggleJsonViewBtn" class="text-action" title="Toggle JSON View">Toggle View</span>
+                            <button type="button" id="formatJsonBtn" class="btn btn-sm btn-outline-info btn-json-action"
+                                title="Format JSON">Format JSON</button>
+                            <button type="button" id="expandAllBtn" class="btn btn-sm btn-outline-secondary"
+                                title="Expand All" style="display: none;">Expand All</button>
+                            <button type="button" id="squeezeAllBtn" class="btn btn-sm btn-outline-secondary"
+                                title="Squeeze All" style="display: none;">Squeeze All</button>
+                            <button type="button" id="toggleJsonViewBtn"
+                                class="btn btn-sm btn-outline-info btn-json-action" title="Toggle JSON View">Toggle
+                                View</button>
                         </div>
                     </div>
                 </div>
@@ -664,11 +697,15 @@
 
                             $(this).toggleClass('expanded').toggleClass('collapsed');
                             if ($content.is(':visible')) {
-                                $content.slideUp(200); // Collapse with animation
-                                $placeholder.fadeIn(200); // Show {...} with fade animation
+                                $content.fadeOut(500, function () {
+                                    $content.slideUp(500);
+                                }); // Collapse with fade and slide animation
+                                $placeholder.fadeIn(500); // Show {...} with fade animation
                             } else {
-                                $placeholder.fadeOut(200); // Hide {...} with fade animation
-                                $content.slideDown(200); // Expand with animation
+                                $placeholder.fadeOut(500); // Hide {...} with fade animation
+                                $content.slideDown(500, function () {
+                                    $content.fadeIn(500);
+                                }); // Expand with slide and fade animation
                             }
                         });
                     } catch (e) {
@@ -686,15 +723,25 @@
 
             // Expand All functionality
             $('#expandAllBtn').on('click', function () {
-                $('.collapsible-content').slideDown(200);
-                $('.collapsible-placeholder').fadeOut(200);
+                $('.collapsible-content').each(function () {
+                    if (!$(this).is(':visible')) {
+                        $(this).slideDown(500).fadeIn(500);
+                    }
+                });
+                $('.collapsible-placeholder').fadeOut(500);
                 $('.collapsible').removeClass('collapsed').addClass('expanded');
             });
 
             // Squeeze All functionality
             $('#squeezeAllBtn').on('click', function () {
-                $('.collapsible-content').slideUp(200);
-                $('.collapsible-placeholder').fadeIn(200);
+                $('.collapsible-content').each(function () {
+                    if ($(this).is(':visible')) {
+                        $(this).fadeOut(500, function () {
+                            $(this).slideUp(500);
+                        });
+                    }
+                });
+                $('.collapsible-placeholder').fadeIn(500);
                 $('.collapsible').removeClass('expanded').addClass('collapsed');
             });
 
@@ -726,8 +773,7 @@
                         html += `<span class="json-key">"${key}"</span>: `;
                     }
                     if (isObject) {
-                        html += `<span class="collapsible collapsed">`;
-                        html += `<span class="collapsible-placeholder">{...}</span></span>`;
+                        html += `<span class="collapsible collapsed"><span class="collapsible-placeholder">{...}</span></span>`;
                         html += `<div class="collapsible-content">${createCollapsibleJson(value)}</div>`;
                     } else {
                         html += `${styleJsonValue(value)},<br>`;
@@ -823,8 +869,8 @@
             }
 
             function addMockToTable(mock) {
-                $('#mock-table-body').append(`
-                    <tr data-id="${mock.id}">
+                $('#mock-table-body').append(
+                    `<tr data-id="${mock.id}">
                         <!-- Checkbox Cell (hidden initially) -->
                         <td class="select-checkbox" style="display: none;">
                             <input type="checkbox" class="row-checkbox">
@@ -837,8 +883,8 @@
                             <button class="btn btn-sm btn-outline-primary edit-btn">Edit</button>
                             <button class="btn btn-sm btn-outline-danger delete-btn">Delete</button>
                         </td>
-                    </tr>
-                `);
+                    </tr>`
+                );
             }
 
             // Event delegation for Edit and Delete buttons

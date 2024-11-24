@@ -12,9 +12,7 @@ use log::{error, info};
 use reqwest::Client;
 use serde_json::Value;
 use std::sync::atomic::Ordering;
-use std::sync::Arc;
-use std::sync::Mutex;
-use tokio::spawn;
+use tokio::spawn; // <-- Add this line
 use uuid::Uuid;
 
 /// Endpoint to update an existing mock

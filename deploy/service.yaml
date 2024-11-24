@@ -11,4 +11,10 @@ spec:
     - protocol: TCP
       port: 8080
       targetPort: 8080
+      name: http
+    # Uncomment the following lines to enable metrics
+    # - protocol: TCP
+    #   port: 9090
+    #   targetPort: 9090
+    #   name: metrics # Added metrics port
   type: LoadBalancer
