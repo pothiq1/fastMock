@@ -462,7 +462,7 @@ pub async fn delete_mock_internal(
 
 /// Handle mock requests based on api_name with dynamic methods and placeholders
 #[route(
-    "/mock/{api_name}",
+    "/mock/{api_name:.*}",
     method = "GET",
     method = "POST",
     method = "PUT",
@@ -470,6 +470,7 @@ pub async fn delete_mock_internal(
 )]
 pub async fn handle_mock(
     path: web::Path<String>,
+    query: web::Query<std::collections::HashMap<String, String>>,
     req: HttpRequest,
     body: web::Bytes,
     state: web::Data<AppState>,
@@ -484,6 +485,9 @@ pub async fn handle_mock(
             if req.method().as_str().eq_ignore_ascii_case(&mock.method) {
                 let mut data = serde_json::Map::new();
 
+                // Add api_name to data
+                data.insert("api_name".to_string(), Value::String(api_name.clone()));
+
                 // Extract headers
                 for (key, value) in req.headers().iter() {
                     if let Ok(val) = value.to_str() {
@@ -492,12 +496,7 @@ pub async fn handle_mock(
                 }
 
                 // Extract query parameters
-                for (key, value) in req.query_string().split('&').filter_map(|s| {
-                    let mut split = s.splitn(2, '=');
-                    let key = split.next()?.to_string();
-                    let value = split.next().unwrap_or("").to_string();
-                    Some((key, value))
-                }) {
+                for (key, value) in query.into_inner() {
                     data.insert(key, Value::String(value));
                 }
 
@@ -521,9 +520,8 @@ pub async fn handle_mock(
                                         .json("Failed to parse JSON body");
                                 }
                             };
-                            if let Some(obj) = json_body.as_object() {
-                                data.extend(obj.clone());
-                            }
+                            // Merge JSON body into data
+                            merge_json(&mut data, &json_body);
                         }
                     }
                 }
@@ -560,5 +558,16 @@ pub async fn handle_mock(
         }
     } else {
         HttpResponse::NotFound().json("Mock not found")
+    }
+}
+
+fn merge_json(data: &mut serde_json::Map<String, Value>, value: &Value) {
+    match value {
+        Value::Object(map) => {
+            for (k, v) in map {
+                data.insert(k.clone(), v.clone());
+            }
+        }
+        _ => {}
     }
 }
