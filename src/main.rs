@@ -1,21 +1,12 @@
 // src/main.rs
 
-// Author: Md Hasan Basri
-// Email: pothiq@gmail.com
-
+mod metrics;
 mod models;
 mod routes;
 mod state;
 mod utils;
 
-// Conditionally include the metrics module
-#[cfg(feature = "metrics")]
-mod metrics;
-
-// Conditionally import metrics_handler and MetricsMiddleware
-#[cfg(feature = "metrics")]
-use crate::metrics::{metrics_handler, MetricsMiddleware};
-
+use crate::metrics::MetricsMiddleware;
 use crate::routes::{
     delete_all_mocks, delete_all_mocks_internal, delete_mock, delete_mock_internal, get_mock,
     handle_mock, health_check, list_mocks, readiness_check, save_mock, save_mock_internal,
@@ -36,8 +27,10 @@ use std::sync::{Arc, Mutex};
 use tokio::time::{interval, sleep, Duration};
 use utils::get_other_pod_ips;
 
-#[cfg(all(feature = "metrics", target_os = "linux"))]
-use prometheus::process_collector::ProcessCollector;
+#[cfg(feature = "metrics")]
+use crate::metrics::metrics_handler;
+#[cfg(feature = "metrics")]
+use tokio_metrics::RuntimeMonitor;
 
 #[derive(RustEmbed)]
 #[folder = "static/"]
@@ -144,6 +137,7 @@ async fn run_server() -> std::io::Result<()> {
         api_name_to_id: DashMap::new(),
         handlebars: Arc::new(Mutex::new(handlebars)),
         synced_peers: AtomicUsize::new(0),
+        request_count: AtomicUsize::new(0),
     });
 
     // Start the peer discovery and synchronization in the background
@@ -154,20 +148,71 @@ async fn run_server() -> std::io::Result<()> {
         });
     }
 
-    // Register process metrics collector if metrics are enabled
+    // Register process metrics collector if metrics are enabled and on Linux
     #[cfg(all(feature = "metrics", target_os = "linux"))]
     {
         if metrics_enabled {
             prometheus::default_registry()
-                .register(Box::new(ProcessCollector::for_self()))
+                .register(Box::new(
+                    prometheus::process_collector::ProcessCollector::for_self(),
+                ))
                 .unwrap();
         }
     }
 
-    // Initialize the HttpServer with conditional middleware wrapping
+    // Initialize the runtime monitor
+    #[cfg(feature = "metrics")]
+    let runtime_monitor = if metrics_enabled {
+        Some(RuntimeMonitor::new())
+    } else {
+        None
+    };
+
+    // Start collecting runtime metrics
+    #[cfg(feature = "metrics")]
+    {
+        if metrics_enabled {
+            use prometheus::{register_gauge, Gauge};
+            use tokio::time::interval;
+
+            lazy_static::lazy_static! {
+                static ref TOKIO_THREADS_TOTAL: Gauge = register_gauge!(
+                    "tokio_threads_total",
+                    "Total number of Tokio worker threads"
+                )
+                .unwrap();
+                static ref TOKIO_THREADS_IDLE: Gauge =
+                    register_gauge!("tokio_threads_idle", "Number of idle Tokio worker threads")
+                        .unwrap();
+                static ref TOKIO_THREADS_ACTIVE: Gauge = register_gauge!(
+                    "tokio_threads_active",
+                    "Number of active Tokio worker threads"
+                )
+                .unwrap();
+            }
+
+            let runtime_monitor = runtime_monitor.unwrap();
+
+            tokio::spawn(async move {
+                let mut interval = interval(Duration::from_secs(5));
+                loop {
+                    interval.tick().await;
+                    let metrics = runtime_monitor.fetch();
+
+                    // Update Prometheus metrics
+                    TOKIO_THREADS_TOTAL.set(metrics.workers_total as f64);
+                    TOKIO_THREADS_IDLE.set(metrics.workers_idle as f64);
+                    TOKIO_THREADS_ACTIVE.set(metrics.workers_busy as f64);
+                }
+            });
+        }
+    }
+
+    // Initialize the HttpServer and wrap with MetricsMiddleware
     let server = HttpServer::new(move || {
-        let app = App::new()
+        App::new()
             .wrap(Compress::default()) // Enable gzip compression
+            .wrap(MetricsMiddleware)
             .app_data(web::Data::from(app_data.clone()))
             .service(save_mock)
             .service(list_mocks)
@@ -183,26 +228,10 @@ async fn run_server() -> std::io::Result<()> {
             .service(readiness_check)
             .service(handle_mock) // Register the handler with attribute macro
             .route("/", web::get().to(index))
-            .route("/static/{filename:.*}", web::get().to(static_files));
-
-        // Conditionally apply MetricsMiddleware
-        #[cfg(feature = "metrics")]
-        {
-            if metrics_enabled {
-                app.wrap(MetricsMiddleware)
-            } else {
-                app
-            }
-        }
-
-        #[cfg(not(feature = "metrics"))]
-        {
-            // No middleware wrapping when metrics are disabled
-            app
-        }
+            .route("/static/{filename:.*}", web::get().to(static_files))
     })
     .workers(num_cpus::get())
-    .max_connections(20_000)
+    .max_connections(20000)
     .backlog(1024)
     .bind("0.0.0.0:8080")?
     .run();

@@ -11,6 +11,8 @@
     <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap4.min.css">
     <!-- Custom CSS for styling -->
     <style>
+        /* [Include all your existing CSS styles here] */
+        /* ... (Omitted for brevity) ... */
         body {
             background-color: #f8f9fa;
             padding-bottom: 80px;
@@ -203,7 +205,7 @@
                 top: 10px;
                 right: 10px;
                 transform-origin: center;
-                transition: transform 0.3s ease, box-shadow 0.3s ease;
+                transition: transform 0.3s ease;
             }
         }
 
@@ -403,6 +405,54 @@
         .btn-json-action:last-child {
             margin-right: 0;
         }
+
+        /* Styles for dynamic response blocks */
+        .response-block {
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background-color: #f1f1f1;
+            position: relative;
+        }
+
+        .remove-response-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+        }
+
+        /* Adjusting buttons within response blocks */
+        .response-actions {
+            margin-top: 10px;
+        }
+
+        .response-actions button {
+            margin-right: 10px;
+        }
+
+        /* Styles for headers and conditions within response blocks */
+        .headers-container,
+        .conditions-container {
+            margin-top: 10px;
+        }
+
+        .header-pair,
+        .condition-pair {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .header-pair input,
+        .condition-pair input {
+            margin-right: 10px;
+        }
+
+        .remove-header-btn,
+        .remove-condition-btn {
+            padding: 0 5px;
+        }
     </style>
     <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -417,11 +467,14 @@
     <h1 class="text-center mb-4">Mock API Manager</h1>
 
     <!-- Notification and Loading Indicators -->
-    <div id="notification" class="alert alert-success text-center" style="display:none;">
+    <div id="notification" class="alert text-center" style="display:none;">
         <span id="notification-message">Mock API saved successfully!</span>
         <div class="processing-time" id="processing-time"></div>
     </div>
-    <div id="loading" class="alert alert-info text-center" style="display:none;">Processing...</div>
+    <div id="loading" class="alert alert-info text-center" style="display:none;">
+        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+        Processing...
+    </div>
 
     <!-- Collapsible Panel for Mock Form -->
     <div class="collapsible-panel" id="mock-form-panel">
@@ -442,25 +495,60 @@
                         contain whitespace.</small>
                 </div>
 
+                <!-- Dynamic Responses Container -->
                 <div class="form-group">
-                    <label for="response">Response (JSON):</label>
-                    <textarea class="form-control" id="response" name="response" rows="3" required></textarea>
-                    <div class="d-flex justify-content-between align-items-center mt-1">
-                        <small id="response-info" class="form-text text-muted">Characters: 0 | Size: 0 KB</small>
-                        <div>
-                            <button type="button" id="formatJsonBtn" class="btn btn-sm btn-outline-info btn-json-action"
-                                title="Format JSON">Format JSON</button>
-                            <button type="button" id="expandAllBtn" class="btn btn-sm btn-outline-secondary"
-                                title="Expand All" style="display: none;">Expand All</button>
-                            <button type="button" id="squeezeAllBtn" class="btn btn-sm btn-outline-secondary"
-                                title="Squeeze All" style="display: none;">Squeeze All</button>
-                            <button type="button" id="toggleJsonViewBtn"
-                                class="btn btn-sm btn-outline-info btn-json-action" title="Toggle JSON View">Toggle
-                                View</button>
+                    <label>Responses:</label>
+                    <div id="responses-container">
+                        <!-- Initial Response Block -->
+                        <div class="response-block">
+                            <button type="button" class="btn btn-sm btn-danger remove-response-btn"
+                                title="Remove Response">&times;</button>
+                            <div class="form-group">
+                                <label>Response (JSON):</label>
+                                <textarea class="form-control response-text" rows="3" required
+                                    placeholder='e.g., { "message": "Success" }'></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Weight:</label>
+                                <input type="number" class="form-control weight-input" value="1" min="1" required>
+                            </div>
+                            <div class="response-actions">
+                                <button type="button" class="btn btn-sm btn-outline-info format-json-btn">Format
+                                    JSON</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary toggle-view-btn">Toggle
+                                    View</button>
+                                <!-- Add Header Button -->
+                                <button type="button" class="btn btn-sm btn-outline-secondary add-header-btn">Add
+                                    Header</button>
+                                <!-- Add Condition Button -->
+                                <button type="button" class="btn btn-sm btn-outline-secondary add-condition-btn">Add
+                                    Condition</button>
+                            </div>
+                            <!-- Container for Headers -->
+                            <div class="headers-container">
+                                <!-- Header pairs will be added here -->
+                            </div>
+                            <!-- Container for Conditions -->
+                            <div class="conditions-container">
+                                <!-- Condition pairs will be added here -->
+                            </div>
+                            <!-- Expand/Squeeze and Format JSON Buttons -->
+                            <div class="json-actions mt-3" style="display: none;">
+                                <button type="button" class="btn btn-sm btn-outline-success expand-all-btn">Expand
+                                    All</button>
+                                <button type="button" class="btn btn-sm btn-outline-warning squeeze-all-btn">Squeeze
+                                    All</button>
+                                <button type="button" class="btn btn-sm btn-outline-info format-json-toggle-btn">Format
+                                    JSON</button>
+                            </div>
                         </div>
                     </div>
+                    <!-- Add Response Button -->
+                    <button type="button" class="btn btn-secondary btn-sm mt-2" id="addResponseBtn">Add
+                        Response</button>
                 </div>
 
+                <!-- Mock-Level Fields -->
                 <div class="form-group">
                     <label for="status">Status Code:</label>
                     <input type="text" class="form-control" id="status" name="status" list="status-codes" required
@@ -558,9 +646,9 @@
         aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title text-danger" id="deleteConfirmationModalLabel">Confirm Deletion</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="deleteConfirmationModalLabel">Confirm Deletion</h5>
+                    <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
                     </button>
                 </div>
@@ -580,9 +668,9 @@
         aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title text-danger" id="flushConfirmationModalLabel">Confirm Flush All</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <div class="modal-header bg-warning text-white">
+                    <h5 class="modal-title" id="flushConfirmationModalLabel">Confirm Flush All</h5>
+                    <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
                     </button>
                 </div>
@@ -602,9 +690,9 @@
         aria-labelledby="overwriteConfirmationModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title text-warning" id="overwriteConfirmationModalLabel">Overwrite Mock</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <div class="modal-header bg-warning text-white">
+                    <h5 class="modal-title" id="overwriteConfirmationModalLabel">Overwrite Mock</h5>
+                    <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
                     </button>
                 </div>
@@ -629,7 +717,6 @@
     <!-- JavaScript for managing mock operations -->
     <script>
         $(document).ready(function () {
-            let isJsonView = false;
             let mockIdToDelete = null; // Variable to store the mock ID to delete
             let existingMocks = []; // To store existing mocks for import
             let importMocks = []; // To store mocks being imported
@@ -648,7 +735,7 @@
             mockFormBody.hide();
             toggleIcon.html('&#x25BC;'); // Down arrow
 
-            // Add margin dynamically when collapsed
+            // Toggle panel on header click
             $('.collapsible-panel-header').on('click', function () {
                 if ($('.collapsible-panel').hasClass('expanded')) {
                     $('.collapsible-panel').removeClass('expanded').find('.collapsible-panel-body').slideUp(500); // Slowed animation
@@ -659,159 +746,225 @@
                 }
             });
 
+            // Handler for adding new response blocks
+            $('#addResponseBtn').on('click', function () {
+                const responseBlock = `
+                    <div class="response-block">
+                        <button type="button" class="btn btn-sm btn-danger remove-response-btn" title="Remove Response">&times;</button>
+                        <div class="form-group">
+                            <label>Response (JSON):</label>
+                            <textarea class="form-control response-text" rows="3" required
+                                placeholder='e.g., { "message": "Success" }'></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Weight:</label>
+                            <input type="number" class="form-control weight-input" value="1" min="1" required>
+                        </div>
+                        <div class="response-actions">
+                            <button type="button" class="btn btn-sm btn-outline-info format-json-btn">Format JSON</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary toggle-view-btn">Toggle View</button>
+                            <!-- Add Header Button -->
+                            <button type="button" class="btn btn-sm btn-outline-secondary add-header-btn">Add Header</button>
+                            <!-- Add Condition Button -->
+                            <button type="button" class="btn btn-sm btn-outline-secondary add-condition-btn">Add Condition</button>
+                        </div>
+                        <!-- Container for Headers -->
+                        <div class="headers-container">
+                            <!-- Header pairs will be added here -->
+                        </div>
+                        <!-- Container for Conditions -->
+                        <div class="conditions-container">
+                            <!-- Condition pairs will be added here -->
+                        </div>
+                        <!-- Expand/Squeeze and Format JSON Buttons -->
+                        <div class="json-actions mt-3" style="display: none;">
+                            <button type="button" class="btn btn-sm btn-outline-success expand-all-btn">Expand All</button>
+                            <button type="button" class="btn btn-sm btn-outline-warning squeeze-all-btn">Squeeze All</button>
+                            <button type="button" class="btn btn-sm btn-outline-info format-json-toggle-btn">Format JSON</button>
+                        </div>
+                    </div>
+                `;
+                $('#responses-container').append(responseBlock);
+            });
 
-            function expandPanel() {
-                mockFormPanel.addClass('expanded');
-                mockFormBody.fadeIn(500); // Slowed animation
-                toggleIcon.html('&#x25B2;'); // Up arrow
-            }
+            // Handler for removing response blocks
+            $('#responses-container').on('click', '.remove-response-btn', function () {
+                $(this).closest('.response-block').remove();
+            });
 
-            function collapsePanel() {
-                mockFormPanel.removeClass('expanded');
-                mockFormBody.fadeOut(500); // Slowed animation
-                toggleIcon.html('&#x25BC;'); // Down arrow
-            }
+            // Handler for formatting JSON within a response block
+            $('#responses-container').on('click', '.format-json-btn', function () {
+                const responseTextarea = $(this).closest('.response-block').find('.response-text');
+                try {
+                    const json = JSON.parse(responseTextarea.val());
+                    responseTextarea.val(JSON.stringify(json, null, 4));
+                } catch (e) {
+                    showAlert('Invalid JSON - Cannot format.', 'danger');
+                }
+            });
 
-            // Toggle JSON View
-            $('#toggleJsonViewBtn').on('click', function (event) {
-                event.preventDefault();
-                const responseElement = $('#response');
-                const responseContent = responseElement.val().trim();
+            // Handler for toggling JSON view within a response block
+            $('#responses-container').on('click', '.toggle-view-btn', function () {
+                const responseTextarea = $(this).closest('.response-block').find('.response-text');
+                const currentVal = responseTextarea.val().trim();
+                const toggleBtn = $(this);
+                const jsonActions = $(this).closest('.response-block').find('.json-actions');
 
-                if (!isJsonView) {
+                // Prevent multiple pre elements from being added
+                if (!responseTextarea.hasClass('json-view-enabled')) {
+                    if (currentVal === "") {
+                        showAlert('Invalid JSON - Cannot toggle view.', 'warning');
+                        return;
+                    }
+
                     try {
-                        const json = JSON.parse(responseContent);
+                        const json = JSON.parse(currentVal);
                         const collapsibleHtml = createCollapsibleJson(json);
-                        responseElement.hide();
-                        $('#json-view').remove();
-                        responseElement.after(`<pre id="json-view" class="json-view">${collapsibleHtml}</pre>`);
-                        $('#toggleJsonViewBtn').text('Edit JSON');
-                        $('#formatJsonBtn').hide();
-                        $('#expandAllBtn, #squeezeAllBtn').show();
-                        isJsonView = true;
-
-                        // Set up click events for collapsible items with animation
-                        $('.collapsible').off('click').on('click', function () {
-                            const $content = $(this).next('.collapsible-content');
-                            const $placeholder = $(this).children('.collapsible-placeholder');
-
-                            $(this).toggleClass('expanded').toggleClass('collapsed');
-                            if ($content.is(':visible')) {
-                                $content.fadeOut(500, function () {
-                                    $content.slideUp(500);
-                                }); // Collapse with fade and slide animation
-                                $placeholder.fadeIn(500); // Show {...} with fade animation
-                            } else {
-                                $placeholder.fadeOut(500); // Hide {...} with fade animation
-                                $content.slideDown(500, function () {
-                                    $content.fadeIn(500);
-                                }); // Expand with slide and fade animation
-                            }
-                        });
+                        responseTextarea.hide();
+                        // Remove any existing pre elements to prevent duplication
+                        $(this).closest('.response-block').find('.json-view').remove();
+                        responseTextarea.after(`<pre class="json-view">${collapsibleHtml}</pre>`);
+                        toggleBtn.text('Edit JSON');
+                        responseTextarea.addClass('json-view-enabled');
+                        // Show Expand All and Squeeze All, hide Format JSON
+                        jsonActions.show();
                     } catch (e) {
-                        alert('Invalid JSON - Cannot toggle view');
+                        showAlert('Invalid JSON - Cannot toggle view.', 'danger');
                     }
                 } else {
-                    $('#json-view').remove();
-                    responseElement.show();
-                    $('#toggleJsonViewBtn').text('Toggle View');
-                    $('#formatJsonBtn').show();
-                    $('#expandAllBtn, #squeezeAllBtn').hide();
-                    isJsonView = false;
+                    // Remove the pre element and show the textarea again
+                    $(this).closest('.response-block').find('.json-view').remove();
+                    responseTextarea.show();
+                    toggleBtn.text('Toggle View');
+                    responseTextarea.removeClass('json-view-enabled');
+                    // Hide Expand All and Squeeze All, show Format JSON
+                    jsonActions.hide();
                 }
             });
 
-            // Expand All functionality
-            $('#expandAllBtn').on('click', function () {
-                $('.collapsible-content').each(function () {
-                    if (!$(this).is(':visible')) {
-                        $(this).slideDown(500).fadeIn(500);
-                    }
-                });
-                $('.collapsible-placeholder').fadeOut(500);
-                $('.collapsible').removeClass('collapsed').addClass('expanded');
-            });
-
-            // Squeeze All functionality
-            $('#squeezeAllBtn').on('click', function () {
-                $('.collapsible-content').each(function () {
-                    if ($(this).is(':visible')) {
-                        $(this).fadeOut(500, function () {
-                            $(this).slideUp(500);
-                        });
-                    }
-                });
-                $('.collapsible-placeholder').fadeIn(500);
-                $('.collapsible').removeClass('expanded').addClass('collapsed');
-            });
-
-            $('#formatJsonBtn').on('click', function (event) {
-                event.preventDefault();
+            // Handler for formatting JSON toggle button
+            $('#responses-container').on('click', '.format-json-toggle-btn', function () {
+                const responseTextarea = $(this).closest('.response-block').find('.response-text');
                 try {
-                    const json = JSON.parse($('#response').val());
-                    $('#response').val(JSON.stringify(json, null, 4));
+                    const json = JSON.parse(responseTextarea.val());
+                    responseTextarea.val(JSON.stringify(json, null, 4));
+                    showAlert('JSON formatted successfully.', 'success');
                 } catch (e) {
-                    alert('Invalid JSON');
+                    showAlert('Invalid JSON - Cannot format.', 'danger');
                 }
             });
 
-            // Function to create collapsible JSON HTML
-            function createCollapsibleJson(json) {
-                if (typeof json !== 'object' || json === null) {
-                    return styleJsonValue(json);
-                }
+            // Handler for adding headers within a response block
+            $('#responses-container').on('click', '.add-header-btn', function () {
+                const headersContainer = $(this).closest('.response-block').find('.headers-container');
+                const headerPair = `
+                    <div class="header-pair">
+                        <input type="text" class="form-control header-key" placeholder="Header Key" required>
+                        <input type="text" class="form-control header-value" placeholder="Header Value" required>
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-header-btn" title="Remove Header">&times;</button>
+                    </div>
+                `;
+                headersContainer.append(headerPair);
+            });
 
-                let html = '';
-                const isArray = Array.isArray(json);
-                html += isArray ? '[<br>' : '{<br>';
-                for (const key in json) {
-                    const value = json[key];
-                    const isObject = typeof value === 'object' && value !== null;
+            // Handler for removing headers within a response block
+            $('#responses-container').on('click', '.remove-header-btn', function () {
+                $(this).closest('.header-pair').remove();
+            });
 
-                    html += `<div style="margin-left: 20px;">`;
-                    if (!isArray) {
-                        html += `<span class="json-key">"${key}"</span>: `;
-                    }
-                    if (isObject) {
-                        html += `<span class="collapsible collapsed"><span class="collapsible-placeholder">{...}</span></span>`;
-                        html += `<div class="collapsible-content">${createCollapsibleJson(value)}</div>`;
-                    } else {
-                        html += `${styleJsonValue(value)},<br>`;
-                    }
-                    html += '</div>';
-                }
-                html += isArray ? ']<br>' : '}<br>';
-                return html;
-            }
+            // Handler for adding conditions within a response block
+            $('#responses-container').on('click', '.add-condition-btn', function () {
+                const conditionsContainer = $(this).closest('.response-block').find('.conditions-container');
+                const conditionPair = `
+                    <div class="condition-pair">
+                        <input type="text" class="form-control condition-key" placeholder="Condition Key" required>
+                        <input type="text" class="form-control condition-value" placeholder="Condition Value" required>
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-condition-btn" title="Remove Condition">&times;</button>
+                    </div>
+                `;
+                conditionsContainer.append(conditionPair);
+            });
 
-            // Function to style JSON values based on their type
-            function styleJsonValue(value) {
-                if (typeof value === 'string') {
-                    const isPlaceholder = value.startsWith("{{") && value.endsWith("}}");
-                    const className = isPlaceholder ? "json-placeholder" : "json-string";
-                    return `<span class="${className}">"${value}"</span>`;
-                } else if (typeof value === 'number') {
-                    return `<span class="json-number">${value}</span>`;
-                } else if (typeof value === 'boolean') {
-                    return `<span class="json-boolean">${value}</span>`;
-                } else if (value === null) {
-                    return `<span class="json-null">null</span>`;
-                }
-            }
+            // Handler for removing conditions within a response block
+            $('#responses-container').on('click', '.remove-condition-btn', function () {
+                $(this).closest('.condition-pair').remove();
+            });
 
+            // Handler for expanding all JSON sections within a response block
+            $('#responses-container').on('click', '.expand-all-btn', function () {
+                const jsonView = $(this).closest('.response-block').find('.json-view');
+                jsonView.find('.collapsible.collapsed').each(function () {
+                    $(this).removeClass('collapsed').addClass('expanded');
+                    $(this).next('.collapsible-content').slideDown(300);
+                });
+            });
+
+            // Handler for squeezing all JSON sections within a response block
+            $('#responses-container').on('click', '.squeeze-all-btn', function () {
+                const jsonView = $(this).closest('.response-block').find('.json-view');
+                jsonView.find('.collapsible.expanded').each(function () {
+                    $(this).removeClass('expanded').addClass('collapsed');
+                    $(this).next('.collapsible-content').slideUp(300);
+                });
+            });
+
+            // Save Mock Button Handler
             $('#saveButton').on('click', function () {
                 if (!validateForm()) return;
 
                 $('#loading').show();
                 const startTime = performance.now(); // Start time
 
+                // Collect all response variants
+                const responseVariants = [];
+                $('.response-block').each(function () {
+                    const response = $(this).find('.response-text').val();
+                    const weight = parseInt($(this).find('.weight-input').val(), 10);
+
+                    // Collect headers for this response
+                    const headers = {};
+                    $(this).find('.header-pair').each(function () {
+                        const key = $(this).find('.header-key').val().trim();
+                        const value = $(this).find('.header-value').val().trim();
+                        if (key && value) {
+                            headers[key] = value;
+                        }
+                    });
+
+                    // Collect conditions for this response
+                    const conditionsObj = {};
+                    $(this).find('.condition-pair').each(function () {
+                        const key = $(this).find('.condition-key').val().trim();
+                        const value = $(this).find('.condition-value').val().trim();
+                        if (key && value) {
+                            conditionsObj[key] = value;
+                        }
+                    });
+
+                    // Serialize conditions into a JSON string
+                    const condition = Object.keys(conditionsObj).length > 0 ? JSON.stringify(conditionsObj) : null;
+
+                    responseVariants.push({
+                        response: response,
+                        weight: weight,
+                        headers: headers,
+                        condition: condition
+                    });
+                });
+
+                // Collect mock-level fields
                 const formData = {
                     api_name: $('#api_name').val(),
-                    response: $('#response').val(),
+                    method: $('#method').val(),
                     status: parseInt($('#status').val(), 10),
                     delay: parseInt($('#delay').val(), 10),
-                    method: $('#method').val(),
-                    timestamp: new Date().toISOString() // Adding timestamp
+                    timestamp: new Date().toISOString(),
+                    response_variants: responseVariants.map(variant => ({
+                        response: variant.response,
+                        weight: variant.weight,
+                        response_headers: Object.keys(variant.headers).length > 0 ? variant.headers : null,
+                        condition: variant.condition
+                    }))
                 };
 
                 const id = $('#mock-id').val();
@@ -833,12 +986,48 @@
                         $('#loading').hide();
                         loadMocks();
                         $('#mock-form')[0].reset();
-                        $('#response-info').text("Characters: 0 | Size: 0 KB");
+                        $('#responses-container').html(`
+                            <div class="response-block">
+                                <button type="button" class="btn btn-sm btn-danger remove-response-btn" title="Remove Response">&times;</button>
+                                <div class="form-group">
+                                    <label>Response (JSON):</label>
+                                    <textarea class="form-control response-text" rows="3" required
+                                        placeholder='e.g., { "message": "Success" }'></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label>Weight:</label>
+                                    <input type="number" class="form-control weight-input" value="1" min="1" required>
+                                </div>
+                                <div class="response-actions">
+                                    <button type="button" class="btn btn-sm btn-outline-info format-json-btn">Format JSON</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary toggle-view-btn">Toggle View</button>
+                                    <!-- Add Header Button -->
+                                    <button type="button" class="btn btn-sm btn-outline-secondary add-header-btn">Add Header</button>
+                                    <!-- Add Condition Button -->
+                                    <button type="button" class="btn btn-sm btn-outline-secondary add-condition-btn">Add Condition</button>
+                                </div>
+                                <!-- Container for Headers -->
+                                <div class="headers-container">
+                                    <!-- Header pairs will be added here -->
+                                </div>
+                                <!-- Container for Conditions -->
+                                <div class="conditions-container">
+                                    <!-- Condition pairs will be added here -->
+                                </div>
+                                <!-- Expand/Squeeze and Format JSON Buttons -->
+                                <div class="json-actions mt-3" style="display: none;">
+                                    <button type="button" class="btn btn-sm btn-outline-success expand-all-btn">Expand All</button>
+                                    <button type="button" class="btn btn-sm btn-outline-warning squeeze-all-btn">Squeeze All</button>
+                                    <button type="button" class="btn btn-sm btn-outline-info format-json-toggle-btn">Format JSON</button>
+                                </div>
+                            </div>
+                        `);
                         $('#mock-id').val('');
-                        if (isJsonView) {
-                            $('#toggleJsonViewBtn').click(); // Reset JSON view if active
-                        }
                         // Keep the panel expanded after saving
+                        if (!mockFormPanel.hasClass('expanded')) {
+                            mockFormPanel.addClass('expanded').find('.collapsible-panel-body').slideDown(500);
+                            toggleIcon.html('&#x25B2;'); // Up arrow
+                        }
                     },
                     error: function (xhr) {
                         const endTime = performance.now(); // End time
@@ -852,10 +1041,6 @@
                 });
             });
 
-            $('#response').on('input', function () {
-                updateResponseInfo();
-            });
-
             function loadMocks() {
                 $.get('/list-mocks', function (mocks) {
                     existingMocks = mocks; // Store existing mocks for import
@@ -864,7 +1049,7 @@
                     mocks.forEach(mock => addMockToTable(mock));
                     initializeDataTable();
                 }).fail(function () {
-                    alert('Failed to load mocks.');
+                    showAlert('Failed to load mocks.', 'danger');
                 });
             }
 
@@ -986,33 +1171,142 @@
                 const startTime = performance.now(); // Start time
                 $.get(`/get-mock/${id}`, function (mock) {
                     $('#api_name').val(mock.api_name);
-                    $('#response').val(mock.response);
+                    // Clear existing responses
+                    $('#responses-container').empty();
+
+                    // Populate response variants
+                    if (mock.response_variants && mock.response_variants.length > 0) {
+                        mock.response_variants.forEach(variant => {
+                            // Construct header pairs if headers exist
+                            let headersHtml = '';
+                            if (variant.response_headers && Object.keys(variant.response_headers).length > 0) {
+                                for (const key in variant.response_headers) {
+                                    const value = variant.response_headers[key];
+                                    headersHtml += `
+                                        <div class="header-pair">
+                                            <input type="text" class="form-control header-key" placeholder="Header Key" value="${key}" required>
+                                            <input type="text" class="form-control header-value" placeholder="Header Value" value="${value}" required>
+                                            <button type="button" class="btn btn-sm btn-outline-danger remove-header-btn" title="Remove Header">&times;</button>
+                                        </div>
+                                    `;
+                                }
+                            }
+
+                            // Construct condition pairs if conditions exist
+                            let conditionsHtml = '';
+                            if (variant.condition) {
+                                try {
+                                    const conditionsObj = JSON.parse(variant.condition);
+                                    for (const key in conditionsObj) {
+                                        const value = conditionsObj[key];
+                                        conditionsHtml += `
+                                            <div class="condition-pair">
+                                                <input type="text" class="form-control condition-key" placeholder="Condition Key" value="${key}" required>
+                                                <input type="text" class="form-control condition-value" placeholder="Condition Value" value="${value}" required>
+                                                <button type="button" class="btn btn-sm btn-outline-danger remove-condition-btn" title="Remove Condition">&times;</button>
+                                            </div>
+                                        `;
+                                    }
+                                } catch (e) {
+                                    console.error('Failed to parse conditions:', e);
+                                }
+                            }
+
+                            const responseBlock = `
+                                <div class="response-block">
+                                    <button type="button" class="btn btn-sm btn-danger remove-response-btn" title="Remove Response">&times;</button>
+                                    <div class="form-group">
+                                        <label>Response (JSON):</label>
+                                        <textarea class="form-control response-text" rows="3" required
+                                            placeholder='e.g., { "message": "Success" }'>${variant.response}</textarea>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Weight:</label>
+                                        <input type="number" class="form-control weight-input" value="${variant.weight}" min="1" required>
+                                    </div>
+                                    <div class="response-actions">
+                                        <button type="button" class="btn btn-sm btn-outline-info format-json-btn">Format JSON</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary toggle-view-btn">Toggle View</button>
+                                        <!-- Add Header Button -->
+                                        <button type="button" class="btn btn-sm btn-outline-secondary add-header-btn">Add Header</button>
+                                        <!-- Add Condition Button -->
+                                        <button type="button" class="btn btn-sm btn-outline-secondary add-condition-btn">Add Condition</button>
+                                    </div>
+                                    <!-- Container for Headers -->
+                                    <div class="headers-container">
+                                        ${headersHtml}
+                                    </div>
+                                    <!-- Container for Conditions -->
+                                    <div class="conditions-container">
+                                        ${conditionsHtml}
+                                    </div>
+                                    <!-- Expand/Squeeze and Format JSON Buttons -->
+                                    <div class="json-actions mt-3" style="display: none;">
+                                        <button type="button" class="btn btn-sm btn-outline-success expand-all-btn">Expand All</button>
+                                        <button type="button" class="btn btn-sm btn-outline-warning squeeze-all-btn">Squeeze All</button>
+                                        <button type="button" class="btn btn-sm btn-outline-info format-json-toggle-btn">Format JSON</button>
+                                    </div>
+                                </div>
+                            `;
+                            $('#responses-container').append(responseBlock);
+                        });
+                    } else {
+                        // If no response variants, add a default one
+                        const defaultResponse = `
+                            <div class="response-block">
+                                <button type="button" class="btn btn-sm btn-danger remove-response-btn" title="Remove Response">&times;</button>
+                                <div class="form-group">
+                                    <label>Response (JSON):</label>
+                                    <textarea class="form-control response-text" rows="3" required
+                                        placeholder='e.g., { "message": "Success" }'></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label>Weight:</label>
+                                    <input type="number" class="form-control weight-input" value="1" min="1" required>
+                                </div>
+                                <div class="response-actions">
+                                    <button type="button" class="btn btn-sm btn-outline-info format-json-btn">Format JSON</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary toggle-view-btn">Toggle View</button>
+                                    <!-- Add Header Button -->
+                                    <button type="button" class="btn btn-sm btn-outline-secondary add-header-btn">Add Header</button>
+                                    <!-- Add Condition Button -->
+                                    <button type="button" class="btn btn-sm btn-outline-secondary add-condition-btn">Add Condition</button>
+                                </div>
+                                <!-- Container for Headers -->
+                                <div class="headers-container">
+                                    <!-- Header pairs will be added here -->
+                                </div>
+                                <!-- Container for Conditions -->
+                                <div class="conditions-container">
+                                    <!-- Condition pairs will be added here -->
+                                </div>
+                                <!-- Expand/Squeeze and Format JSON Buttons -->
+                                <div class="json-actions mt-3" style="display: none;">
+                                    <button type="button" class="btn btn-sm btn-outline-success expand-all-btn">Expand All</button>
+                                    <button type="button" class="btn btn-sm btn-outline-warning squeeze-all-btn">Squeeze All</button>
+                                    <button type="button" class="btn btn-sm btn-outline-info format-json-toggle-btn">Format JSON</button>
+                                </div>
+                            </div>
+                        `;
+                        $('#responses-container').append(defaultResponse);
+                    }
+
+                    // Set mock-level fields
                     $('#status').val(mock.status);
                     $('#delay').val(mock.delay);
                     $('#method').val(mock.method);
                     $('#mock-id').val(mock.id);
-                    $('#response-info').text(`Characters: ${mock.response.length} | Size: ${(new Blob([mock.response]).size / 1024).toFixed(2)} KB`);
+
                     const endTime = performance.now(); // End time
                     const duration = Math.round(endTime - startTime); // Duration in ms
                     $('#processing-time').text(`Processing Time: ${duration} ms`);
                     $('#loading').hide();
-                    if (isJsonView) {
-                        $('#toggleJsonViewBtn').click(); // Toggle back to JSON view if it's already active
-                    }
                     // Expand the panel if it's collapsed
                     if (!mockFormPanel.hasClass('expanded')) {
-                        expandPanel();
+                        mockFormPanel.addClass('expanded').find('.collapsible-panel-body').slideDown(500);
+                        toggleIcon.html('&#x25B2;'); // Up arrow
                     }
-                }).fail(function () {
-                    alert('Failed to fetch mock details.');
-                    $('#loading').hide();
-                });
-            }
-
-            function updateResponseInfo() {
-                const length = $('#response').val().length;
-                const sizeInKb = (new Blob([$('#response').val()]).size / 1024).toFixed(2);
-                $('#response-info').text(`Characters: ${length} | Size: ${sizeInKb} KB`);
+                }); // <-- Correctly closes the $.get function
             }
 
             function validateForm() {
@@ -1042,9 +1336,128 @@
                     $('#delay-error').hide();
                 }
 
+                // Validate each response block
+                let errorFound = false;
+                $('.response-block').each(function () {
+                    const response = $(this).find('.response-text').val().trim();
+                    const weight = $(this).find('.weight-input').val().trim();
+
+                    if (response === '') {
+                        showAlert('All response fields must be filled.', 'warning');
+                        isValid = false;
+                        errorFound = true;
+                        return false; // Break out of each loop
+                    }
+
+                    // Validate JSON
+                    try {
+                        JSON.parse(response);
+                    } catch (e) {
+                        showAlert('Invalid JSON in one of the responses.', 'danger');
+                        isValid = false;
+                        errorFound = true;
+                        return false; // Break out of each loop
+                    }
+
+                    // Validate weight
+                    if (!/^\d+$/.test(weight) || parseInt(weight, 10) < 1) {
+                        showAlert('All weights must be positive integers.', 'warning');
+                        isValid = false;
+                        errorFound = true;
+                        return false; // Break out of each loop
+                    }
+
+                    // Validate headers (if any)
+                    $(this).find('.header-pair').each(function () {
+                        const key = $(this).find('.header-key').val().trim();
+                        const value = $(this).find('.header-value').val().trim();
+
+                        if (key === '' || value === '') {
+                            showAlert('All header fields must be filled.', 'warning');
+                            isValid = false;
+                            errorFound = true;
+                            return false; // Break out of each loop
+                        }
+                    });
+
+                    // Validate conditions (if any)
+                    $(this).find('.condition-pair').each(function () {
+                        const key = $(this).find('.condition-key').val().trim();
+                        const value = $(this).find('.condition-value').val().trim();
+
+                        if (key === '' || value === '') {
+                            showAlert('All condition fields must be filled.', 'warning');
+                            isValid = false;
+                            errorFound = true;
+                            return false; // Break out of each loop
+                        }
+                    });
+
+                    if (errorFound) return false; // Break out of each loop
+                });
+
                 return isValid;
             }
 
+            // Function to show alerts using Bootstrap alerts
+            function showAlert(message, type) {
+                // type: 'success', 'danger', 'warning', 'info'
+                const alertHtml = `
+                    <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                        ${message}
+                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                `;
+                $('#notification').html(alertHtml).fadeIn().delay(5000).fadeOut();
+            }
+
+            // Function to create collapsible JSON HTML
+            function createCollapsibleJson(json) {
+                if (typeof json !== 'object' || json === null) {
+                    return styleJsonValue(json);
+                }
+
+                let html = '';
+                const isArray = Array.isArray(json);
+                html += isArray ? '[<br>' : '{<br>';
+                for (const key in json) {
+                    const value = json[key];
+                    const isObject = typeof value === 'object' && value !== null;
+
+                    html += `<div style="margin-left: 20px;">`;
+                    if (!isArray) {
+                        html += `<span class="json-key">"${key}"</span>: `;
+                    }
+                    if (isObject) {
+                        html += `<span class="collapsible collapsed"><span class="collapsible-placeholder">{...}</span></span>`;
+                        html += `<div class="collapsible-content">${createCollapsibleJson(value)}</div>`;
+                    } else {
+                        html += `${styleJsonValue(value)},<br>`;
+                    }
+                    html += '</div>';
+                }
+                html += isArray ? ']<br>' : '}<br>';
+                return html;
+            }
+
+            // Function to style JSON values based on their type
+            function styleJsonValue(value) {
+                if (typeof value === 'string') {
+                    const isPlaceholder = value.startsWith("{{") && value.endsWith("}}");
+                    const className = isPlaceholder ? "json-placeholder" : "json-string";
+                    return `<span class="${className}">"${value}"</span>`;
+                } else if (typeof value === 'number') {
+                    return `<span class="json-number">${value}</span>`;
+                } else if (typeof value === 'boolean') {
+                    return `<span class="json-boolean">${value}</span>`;
+                } else if (value === null) {
+                    return `<span class="json-null">null</span>`;
+                }
+            }
+
+            // Function to initialize DataTable
             function initializeDataTable() {
                 $('#mock-table').DataTable({
                     "order": [[1, "asc"]], // Default sorting on API Name (adjusted index due to checkbox column)
@@ -1062,9 +1475,10 @@
                 });
             }
 
-            // Export Functionality
-            let isExportMode = false;
+            // Function to handle Export functionality
             $('#exportBtn').on('click', function () {
+                const isExportMode = $(this).data('export-mode') || false;
+
                 if (!isExportMode) {
                     enableExportMode();
                 } else {
@@ -1081,13 +1495,12 @@
                     });
 
                     if (selectedMocks.length === 0) {
-                        alert('Please select at least one mock to export.');
+                        showAlert('Please select at least one mock to export.', 'warning');
                         return;
                     }
 
-                    const dataStr = JSON.stringify(selectedMocks);
-                    const encodedData = btoa(unescape(encodeURIComponent(dataStr)));
-                    const blob = new Blob([encodedData], { type: 'text/plain' });
+                    const dataStr = JSON.stringify(selectedMocks, null, 2);
+                    const blob = new Blob([dataStr], { type: 'application/json' });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
@@ -1102,16 +1515,14 @@
             });
 
             function enableExportMode() {
-                isExportMode = true;
-                $('#exportBtn').text('Download');
+                $('#exportBtn').data('export-mode', true).text('Download');
                 $('#mock-table thead th.select-checkbox').show();
                 $('#mock-table tbody td.select-checkbox').show();
                 $('#select-all').prop('checked', false);
             }
 
             function disableExportMode() {
-                isExportMode = false;
-                $('#exportBtn').text('Export');
+                $('#exportBtn').data('export-mode', false).text('Export');
                 $('#mock-table thead th.select-checkbox').hide();
                 $('#mock-table tbody td.select-checkbox').hide();
                 $('.row-checkbox').prop('checked', false);
@@ -1123,7 +1534,7 @@
                 $('.row-checkbox').prop('checked', isChecked);
             });
 
-            // Import Functionality
+            // Function to handle Import functionality
             $('#importBtn').on('click', function () {
                 $('#importFileInput').click();
             });
@@ -1134,12 +1545,12 @@
                     const reader = new FileReader();
                     reader.onload = function (e) {
                         try {
-                            const decodedData = decodeURIComponent(escape(atob(e.target.result)));
+                            const decodedData = e.target.result;
                             importMocks = JSON.parse(decodedData);
                             importIndex = 0;
                             processImport();
                         } catch (error) {
-                            alert('Invalid or corrupted file.');
+                            showAlert('Invalid or corrupted file.', 'danger');
                         }
                     };
                     reader.readAsText(file);
@@ -1149,7 +1560,7 @@
             function processImport() {
                 if (importIndex >= importMocks.length) {
                     loadMocks();
-                    alert('Import process completed.');
+                    showAlert('Import process completed.', 'success');
                     return;
                 }
                 const mock = importMocks[importIndex];
@@ -1193,7 +1604,7 @@
                         processImport();
                     },
                     error: function (xhr) {
-                        alert('Failed to import mock: ' + xhr.responseText);
+                        showAlert('Failed to import mock: ' + xhr.responseText, 'danger');
                         importIndex++;
                         processImport();
                     }
@@ -1205,8 +1616,7 @@
                 $('.floating-menu').toggleClass('open');
             });
 
-            // Flush All Functionality is handled by the confirmation modal above
-        });
+        }); // <-- Correctly closes the $(document).ready() function
     </script>
 </body>
 

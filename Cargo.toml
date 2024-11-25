@@ -1,12 +1,13 @@
 [package]
 name = "OMock"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["Md Hasan Basri <pothiq@gmail.com>"]
 license = "MIT"
 
 [features]
-metrics = ["prometheus", "lazy_static", "futures"]
+# The 'metrics' feature includes prometheus, lazy_static, futures, and tokio-metrics with 'rt' feature
+metrics = ["prometheus", "lazy_static", "futures", "tokio-metrics/rt"]
 
 [dependencies]
 rust-embed = "6.4.0"
@@ -16,6 +17,7 @@ actix-web = "4.3"
 actix-web-codegen = "4.3"
 actix-files = "0.6.0"
 actix-service = "2.0"
+actix-multipart = "0.4"
 
 # Serde and JSON handling
 serde = { version = "1.0", features = ["derive"] }
@@ -68,3 +70,13 @@ regex = "1.5"
 prometheus = { version = "0.13", optional = true, features = ["process"] }
 lazy_static = { version = "1.4", optional = true }
 futures = { version = "0.3", optional = true }
+tokio-metrics = { version = "0.3.1", optional = true, features = ["rt"] }
+
+# Authentication
+actix-web-httpauth = "0.6"
+
+# For conditional expressions
+meval = "0.2"
+
+# Add 'futures-util' as a regular dependency to ensure it's always available
+futures-util = "0.3"

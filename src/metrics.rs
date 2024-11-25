@@ -3,45 +3,26 @@
 use actix_service::{Service, Transform};
 use actix_web::dev::{ServiceRequest, ServiceResponse};
 use actix_web::HttpResponse;
-use futures::future::{ok, Ready};
 
 #[cfg(feature = "metrics")]
-use futures::future::LocalBoxFuture;
+use futures::future::{ok, LocalBoxFuture, Ready};
+#[cfg(not(feature = "metrics"))]
+use futures_util::future::{ok, Ready}; // Ensure futures-util is added to Cargo.toml
+
 #[cfg(feature = "metrics")]
 use lazy_static::lazy_static;
 #[cfg(feature = "metrics")]
 use prometheus::{
-    register_counter_vec, register_histogram_vec, CounterVec, HistogramVec, TextEncoder,
+    register_counter_vec, register_histogram_vec, CounterVec, Encoder, HistogramVec, TextEncoder,
 };
 #[cfg(feature = "metrics")]
 use std::task::{Context, Poll};
 #[cfg(feature = "metrics")]
 use std::time::Instant;
 
-// Define Prometheus metrics only when the 'metrics' feature is enabled
-#[cfg(feature = "metrics")]
-lazy_static! {
-    pub static ref HTTP_REQUESTS_TOTAL: CounterVec = register_counter_vec!(
-        "http_requests_total",
-        "Number of HTTP requests made.",
-        &["method", "endpoint"]
-    )
-    .unwrap();
-    pub static ref HTTP_REQUESTS_DURATION_SECONDS: HistogramVec = register_histogram_vec!(
-        "http_request_duration_seconds",
-        "HTTP request latencies in seconds.",
-        &["method", "endpoint"]
-    )
-    .unwrap();
-    pub static ref HTTP_REQUESTS_ERRORS_TOTAL: CounterVec = register_counter_vec!(
-        "http_requests_errors_total",
-        "Number of HTTP error responses.",
-        &["method", "endpoint", "status"]
-    )
-    .unwrap();
-}
+#[cfg(not(feature = "metrics"))]
+use std::task::{Context, Poll};
 
-/// Handler to expose metrics at the `/metrics` endpoint
 #[cfg(feature = "metrics")]
 pub async fn metrics_handler() -> HttpResponse {
     let encoder = TextEncoder::new();
@@ -66,16 +47,13 @@ pub async fn metrics_handler() -> HttpResponse {
 }
 
 #[cfg(not(feature = "metrics"))]
-/// Handler returns 404 when metrics are disabled
 pub async fn metrics_handler() -> HttpResponse {
     HttpResponse::NotFound().finish()
 }
 
 /// Middleware for collecting metrics
-#[cfg(feature = "metrics")]
 pub struct MetricsMiddleware;
 
-#[cfg(feature = "metrics")]
 impl<S, B> Transform<S, ServiceRequest> for MetricsMiddleware
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = actix_web::Error> + 'static,
@@ -83,16 +61,30 @@ where
 {
     type Response = ServiceResponse<B>;
     type Error = actix_web::Error;
+
+    #[cfg(feature = "metrics")]
     type Transform = MetricsMiddlewareService<S>;
+
+    #[cfg(not(feature = "metrics"))]
+    type Transform = S;
+
     type InitError = ();
+
     type Future = Ready<Result<Self::Transform, Self::InitError>>;
 
     fn new_transform(&self, service: S) -> Self::Future {
-        ok(MetricsMiddlewareService { service })
+        #[cfg(feature = "metrics")]
+        {
+            ok(MetricsMiddlewareService { service })
+        }
+
+        #[cfg(not(feature = "metrics"))]
+        {
+            ok(service)
+        }
     }
 }
 
-/// Service for handling metrics collection
 #[cfg(feature = "metrics")]
 pub struct MetricsMiddlewareService<S> {
     service: S,
@@ -153,23 +145,24 @@ where
     }
 }
 
-#[cfg(not(feature = "metrics"))]
-/// No-op MetricsMiddleware when metrics are disabled
-pub struct MetricsMiddleware;
-
-#[cfg(not(feature = "metrics"))]
-impl<S, B> Transform<S, ServiceRequest> for MetricsMiddleware
-where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = actix_web::Error> + 'static,
-    B: 'static,
-{
-    type Response = ServiceResponse<B>;
-    type Error = actix_web::Error;
-    type Transform = S; // Return the service unchanged when metrics are disabled
-    type InitError = ();
-    type Future = Ready<Result<Self::Transform, Self::InitError>>;
-
-    fn new_transform(&self, service: S) -> Self::Future {
-        ok(service)
-    }
+#[cfg(feature = "metrics")]
+lazy_static! {
+    pub static ref HTTP_REQUESTS_TOTAL: CounterVec = register_counter_vec!(
+        "http_requests_total",
+        "Number of HTTP requests made.",
+        &["method", "endpoint"]
+    )
+    .unwrap();
+    pub static ref HTTP_REQUESTS_DURATION_SECONDS: HistogramVec = register_histogram_vec!(
+        "http_request_duration_seconds",
+        "HTTP request latencies in seconds.",
+        &["method", "endpoint"]
+    )
+    .unwrap();
+    pub static ref HTTP_REQUESTS_ERRORS_TOTAL: CounterVec = register_counter_vec!(
+        "http_requests_errors_total",
+        "Number of HTTP error responses.",
+        &["method", "endpoint", "status"]
+    )
+    .unwrap();
 }

@@ -1,18 +1,20 @@
 // src/routes.rs
 
-// Author: Md Hasan Basri
-// Email: pothiq@gmail.com
-
-use crate::models::MockAPI;
+use crate::models::{MockAPI, ResponseVariant};
 use crate::state::AppState;
 use crate::utils::get_other_pod_ips;
-use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse, Responder};
-use actix_web_codegen::route; // Import the route attribute macro from actix_web_codegen
+use actix_web::{
+    delete, get, post, put, web, HttpRequest, HttpResponse, Responder, Result as ActixResult,
+};
+use actix_web_codegen::route;
 use log::{error, info};
+use meval::eval_str;
+use rand::Rng;
 use reqwest::Client;
 use serde_json::Value;
+use std::collections::HashMap;
 use std::sync::atomic::Ordering;
-use tokio::spawn; // <-- Add this line
+use tokio::spawn;
 use uuid::Uuid;
 
 /// Endpoint to update an existing mock
@@ -38,23 +40,10 @@ pub async fn update_mock(
         }
 
         // Update the MockAPI fields
-        mock_entry.api_name = updated_mock.api_name.clone();
-        mock_entry.response = updated_mock.response.clone();
-        mock_entry.status = updated_mock.status;
-        mock_entry.delay = updated_mock.delay;
-        mock_entry.method = updated_mock.method.clone();
-        mock_entry.timestamp = updated_mock.timestamp; // Update timestamp
+        *mock_entry = updated_mock.clone();
 
-        // Register the template
-        let template_name = mock_id.to_string();
-        let mut handlebars = state.handlebars.lock().unwrap();
-        match handlebars.register_template_string(&template_name, &updated_mock.response) {
-            Ok(_) => {}
-            Err(e) => {
-                eprintln!("Error compiling template: {}", e);
-                return HttpResponse::InternalServerError().json("Error compiling template");
-            }
-        }
+        // Register templates for response variants
+        state.register_mock_templates(&updated_mock);
     } else {
         return HttpResponse::NotFound().json("Mock not found");
     }
@@ -106,16 +95,8 @@ pub async fn save_mock(data: web::Json<MockAPI>, state: web::Data<AppState>) -> 
     let mock_id = Uuid::new_v4();
     mock.id = Some(mock_id);
 
-    // Register the template
-    let template_name = mock_id.to_string();
-    let mut handlebars = state.handlebars.lock().unwrap();
-    match handlebars.register_template_string(&template_name, &mock.response) {
-        Ok(_) => {}
-        Err(e) => {
-            eprintln!("Error compiling template: {}", e);
-            return HttpResponse::InternalServerError().json("Error compiling template");
-        }
-    }
+    // Register templates for response variants
+    state.register_mock_templates(&mock);
 
     // Insert into mocks
     state.mocks.insert(mock_id, mock.clone());
@@ -174,10 +155,12 @@ pub async fn delete_mock(path: web::Path<Uuid>, state: web::Data<AppState>) -> i
         // Remove from api_name_to_id mapping
         state.api_name_to_id.remove(&mock.api_name);
 
-        // Unregister the template
-        let template_name = id.to_string();
+        // Unregister the templates
         let mut handlebars = state.handlebars.lock().unwrap();
-        handlebars.unregister_template(&template_name);
+        for (index, _) in mock.response_variants.iter().enumerate() {
+            let template_name = format!("{}_{}", id, index);
+            handlebars.unregister_template(&template_name);
+        }
     } else {
         return HttpResponse::NotFound().json("Mock not found");
     }
@@ -339,16 +322,8 @@ pub async fn save_mock_internal(
     let mock_id = mock.id.unwrap_or_else(Uuid::new_v4);
     mock.id = Some(mock_id);
 
-    // Register the template
-    let template_name = mock_id.to_string();
-    let mut handlebars = state.handlebars.lock().unwrap();
-    match handlebars.register_template_string(&template_name, &mock.response) {
-        Ok(_) => {}
-        Err(e) => {
-            eprintln!("Error compiling template: {}", e);
-            return HttpResponse::InternalServerError().json("Error compiling template");
-        }
-    }
+    // Register templates for response variants
+    state.register_mock_templates(&mock);
 
     // Insert into mocks
     state.mocks.insert(mock_id, mock.clone());
@@ -389,16 +364,8 @@ pub async fn update_mock_internal(
                 .api_name_to_id
                 .insert(updated_mock.api_name.clone(), mock_id);
 
-            // Register the template
-            let template_name = mock_id.to_string();
-            let mut handlebars = state.handlebars.lock().unwrap();
-            match handlebars.register_template_string(&template_name, &updated_mock.response) {
-                Ok(_) => {}
-                Err(e) => {
-                    eprintln!("Error compiling template: {}", e);
-                    return HttpResponse::InternalServerError().json("Error compiling template");
-                }
-            }
+            // Register templates for response variants
+            state.register_mock_templates(&updated_mock);
 
             HttpResponse::Ok().json("Mock updated internally")
         } else {
@@ -411,16 +378,8 @@ pub async fn update_mock_internal(
             .api_name_to_id
             .insert(updated_mock.api_name.clone(), mock_id);
 
-        // Register the template
-        let template_name = mock_id.to_string();
-        let mut handlebars = state.handlebars.lock().unwrap();
-        match handlebars.register_template_string(&template_name, &updated_mock.response) {
-            Ok(_) => {}
-            Err(e) => {
-                eprintln!("Error compiling template: {}", e);
-                return HttpResponse::InternalServerError().json("Error compiling template");
-            }
-        }
+        // Register templates for response variants
+        state.register_mock_templates(&updated_mock);
 
         HttpResponse::Ok().json("Mock inserted internally")
     }
@@ -449,10 +408,12 @@ pub async fn delete_mock_internal(
         // Remove from api_name_to_id mapping
         state.api_name_to_id.remove(&mock.api_name);
 
-        // Unregister the template
-        let template_name = id.to_string();
+        // Unregister the templates
         let mut handlebars = state.handlebars.lock().unwrap();
-        handlebars.unregister_template(&template_name);
+        for (index, _) in mock.response_variants.iter().enumerate() {
+            let template_name = format!("{}_{}", id, index);
+            handlebars.unregister_template(&template_name);
+        }
 
         HttpResponse::Ok().json("Mock deleted internally")
     } else {
@@ -470,11 +431,13 @@ pub async fn delete_mock_internal(
 )]
 pub async fn handle_mock(
     path: web::Path<String>,
-    query: web::Query<std::collections::HashMap<String, String>>,
+    query: web::Query<HashMap<String, String>>,
     req: HttpRequest,
     body: web::Bytes,
     state: web::Data<AppState>,
 ) -> impl Responder {
+    state.request_count.fetch_add(1, Ordering::SeqCst);
+
     let api_name = path.into_inner();
 
     // Retrieve the mock ID from api_name
@@ -500,17 +463,14 @@ pub async fn handle_mock(
                     data.insert(key, Value::String(value));
                 }
 
-                // Determine if the template uses variables from the body
-                let uses_body = mock.response.contains("{{") && mock.response.contains("}}");
-
-                // Parse request body only if necessary
-                if uses_body && !body.is_empty() {
-                    if let Some(content_type) = req.headers().get("Content-Type") {
-                        if content_type
-                            .to_str()
-                            .unwrap_or("")
-                            .contains("application/json")
-                        {
+                // Parse request body if JSON
+                if let Some(content_type) = req.headers().get("Content-Type") {
+                    if content_type
+                        .to_str()
+                        .unwrap_or("")
+                        .contains("application/json")
+                    {
+                        if !body.is_empty() {
                             // Parse the JSON body
                             let json_body: Value = match serde_json::from_slice(&body) {
                                 Ok(json) => json,
@@ -526,30 +486,62 @@ pub async fn handle_mock(
                     }
                 }
 
-                // Render the response template using registered template
-                let template_name = mock_id.value().to_string();
+                // Select response variant
+                let variant = match select_response_variant(&mock.response_variants, &data) {
+                    Some(v) => v,
+                    None => {
+                        return HttpResponse::InternalServerError()
+                            .json("No matching response variant found")
+                    }
+                };
+
+                // Render the response template
+                let template_name = format!("{}_{}", mock_id.value(), variant.0);
                 let handlebars = state.handlebars.lock().unwrap();
                 let rendered = match handlebars.render(&template_name, &data) {
                     Ok(res) => res,
                     Err(e) => {
                         eprintln!("Template rendering error: {}", e);
                         return HttpResponse::InternalServerError()
-                            .json("Template rendering error");
+                            .json(format!("Template rendering error: {}", e));
                     }
                 };
 
-                // Introduce delay if specified
-                if mock.delay > 0 {
-                    tokio::time::sleep(std::time::Duration::from_millis(mock.delay)).await;
+                // Prepare the response builder
+                let mut response_builder = HttpResponse::build(
+                    actix_web::http::StatusCode::from_u16(variant.1.status)
+                        .unwrap_or(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR),
+                );
+
+                // Set Content-Type header
+                response_builder.append_header(("Content-Type", "application/json"));
+
+                // Process response headers
+                if let Some(headers) = &variant.1.response_headers {
+                    for (key, value_template) in headers {
+                        // Render header value using Handlebars
+                        let header_template_name =
+                            format!("{}_{}_header_{}", mock_id.value(), variant.0, key);
+                        let rendered_value = match handlebars.render(&header_template_name, &data) {
+                            Ok(val) => val,
+                            Err(e) => {
+                                eprintln!("Header template rendering error: {}", e);
+                                return HttpResponse::InternalServerError()
+                                    .json(format!("Header template rendering error: {}", e));
+                            }
+                        };
+                        // Add the header to the response
+                        response_builder.append_header((key.as_str(), rendered_value));
+                    }
                 }
 
-                // Return the rendered response with the specified status code
-                HttpResponse::build(
-                    actix_web::http::StatusCode::from_u16(mock.status)
-                        .unwrap_or(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR),
-                )
-                .append_header(("Content-Type", "application/json"))
-                .body(rendered)
+                // Introduce delay if specified
+                if let Some(delay) = variant.1.delay {
+                    tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
+                }
+
+                // Return the response
+                response_builder.body(rendered)
             } else {
                 HttpResponse::MethodNotAllowed().json("Method not allowed for this mock")
             }
@@ -570,4 +562,65 @@ fn merge_json(data: &mut serde_json::Map<String, Value>, value: &Value) {
         }
         _ => {}
     }
+}
+
+fn select_response_variant<'a>(
+    variants: &'a [ResponseVariant],
+    data: &serde_json::Map<String, Value>,
+) -> Option<(usize, &'a ResponseVariant)> {
+    // Filter variants based on conditions
+    let filtered_variants: Vec<(usize, &'a ResponseVariant)> = variants
+        .iter()
+        .enumerate()
+        .filter(|(_, variant)| {
+            if let Some(condition) = &variant.condition {
+                match evaluate_condition(condition, data) {
+                    Ok(result) => result,
+                    Err(e) => {
+                        eprintln!("Condition evaluation error: {}", e);
+                        false
+                    }
+                }
+            } else {
+                true
+            }
+        })
+        .collect();
+
+    if filtered_variants.is_empty() {
+        return None;
+    }
+
+    // Calculate total weight
+    let total_weight: u32 = filtered_variants.iter().map(|(_, v)| v.weight).sum();
+    if total_weight == 0 {
+        return None;
+    }
+
+    // Select variant based on weight
+    let mut rng = rand::thread_rng();
+    let mut cumulative_weight = 0;
+    let selected_weight = rng.gen_range(0..total_weight);
+    for (index, variant) in filtered_variants {
+        cumulative_weight += variant.weight;
+        if selected_weight < cumulative_weight {
+            return Some((index, variant));
+        }
+    }
+    None
+}
+
+fn evaluate_condition(
+    condition: &str,
+    data: &serde_json::Map<String, Value>,
+) -> Result<bool, String> {
+    let mut expr = condition.to_string();
+    for (key, value) in data {
+        if let Some(str_value) = value.as_str() {
+            expr = expr.replace(&format!("{{{{{}}}}}", key), str_value);
+        } else if let Some(num_value) = value.as_f64() {
+            expr = expr.replace(&format!("{{{{{}}}}}", key), &num_value.to_string());
+        }
+    }
+    eval_str(&expr).map(|v| v != 0.0).map_err(|e| e.to_string())
 }

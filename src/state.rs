@@ -1,8 +1,5 @@
 // src/state.rs
 
-// Author: Md Hasan Basri
-// Email: pothiq@gmail.com
-
 use anyhow::Result;
 use dashmap::DashMap;
 use handlebars::Handlebars;
@@ -21,6 +18,7 @@ pub struct AppState {
     pub api_name_to_id: DashMap<String, Uuid>,
     pub handlebars: Arc<Mutex<Handlebars<'static>>>, // Changed to Arc<Mutex<Handlebars>>
     pub synced_peers: AtomicUsize,                   // Counter for synchronized peers
+    pub request_count: AtomicUsize,                  // Request counter
 }
 
 impl AppState {
@@ -45,15 +43,8 @@ impl AppState {
                                                 .insert(peer_mock.api_name.clone(), id);
                                             info!("Updated mock {} from peer {}", id, peer_ip);
 
-                                            // Register the template
-                                            let template_name = id.to_string();
-                                            let mut handlebars = self.handlebars.lock().unwrap();
-                                            if let Err(e) = handlebars.register_template_string(
-                                                &template_name,
-                                                &peer_mock.response,
-                                            ) {
-                                                error!("Error compiling template: {}", e);
-                                            }
+                                            // Register the templates
+                                            self.register_mock_templates(&peer_mock);
                                         }
                                     } else {
                                         // Insert new mock
@@ -61,15 +52,8 @@ impl AppState {
                                         self.api_name_to_id.insert(peer_mock.api_name.clone(), id);
                                         info!("Added new mock {} from peer {}", id, peer_ip);
 
-                                        // Register the template
-                                        let template_name = id.to_string();
-                                        let mut handlebars = self.handlebars.lock().unwrap();
-                                        if let Err(e) = handlebars.register_template_string(
-                                            &template_name,
-                                            &peer_mock.response,
-                                        ) {
-                                            error!("Error compiling template: {}", e);
-                                        }
+                                        // Register the templates
+                                        self.register_mock_templates(&peer_mock);
                                     }
                                 }
                             }
@@ -106,5 +90,32 @@ impl AppState {
             "Failed to synchronize mocks from {}",
             peer_ip
         ))
+    }
+
+    /// Register templates for a mock's response variants
+    pub fn register_mock_templates(&self, mock: &MockAPI) {
+        let mut handlebars = self.handlebars.lock().unwrap();
+        for (index, variant) in mock.response_variants.iter().enumerate() {
+            let template_name = format!("{}_{}", mock.id.unwrap(), index);
+            if let Err(e) = handlebars.register_template_string(&template_name, &variant.response) {
+                error!("Error compiling template {}: {}", template_name, e);
+            }
+
+            // Register response headers templates
+            if let Some(headers) = &variant.response_headers {
+                for (header_name, header_value) in headers {
+                    let header_template_name =
+                        format!("{}_{}_header_{}", mock.id.unwrap(), index, header_name);
+                    if let Err(e) =
+                        handlebars.register_template_string(&header_template_name, header_value)
+                    {
+                        error!(
+                            "Error compiling header template {}: {}",
+                            header_template_name, e
+                        );
+                    }
+                }
+            }
+        }
     }
 }

@@ -43,7 +43,14 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     ca-certificates \
     libssl1.1 \
+    procps \
     && rm -rf /var/lib/apt/lists/*
+
+# Increase the maximum number of open file descriptors
+RUN ulimit -n 65535
+
+# Set net.core.somaxconn
+RUN sysctl -w net.core.somaxconn=65535
 
 # Set the working directory
 WORKDIR /app
